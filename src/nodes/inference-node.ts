@@ -1,0 +1,40 @@
+import type { Capability } from '../core/capability.js';
+import type { Result } from '../core/result.js';
+import type { Task } from '../core/task.js';
+import type { InferenceRequest } from '../inference/request.js';
+import type { Transport } from '../transport/transport.js';
+import type { ModelNode } from './node.js';
+
+export class InferenceNode implements ModelNode {
+  constructor(
+    public readonly id: string,
+    private readonly nodeCapabilities: Capability[],
+    private readonly transport: Transport,
+  ) {}
+
+  capabilities(): Capability[] {
+    return this.nodeCapabilities;
+  }
+
+  async execute(task: Task): Promise<Result> {
+    const request: InferenceRequest = {
+      taskId: task.id,
+      aspect: task.aspect,
+      input: task.input,
+      context: task.context,
+      outputSchema: task.outputSchema,
+    };
+
+    const response = await this.transport.send(request);
+
+    return {
+      taskId: task.id,
+      success: response.success,
+      output: response.output,
+      metadata: {
+        nodeId: this.id,
+        ...response.metadata,
+      },
+    };
+  }
+}
