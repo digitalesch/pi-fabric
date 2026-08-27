@@ -37,6 +37,10 @@ PlanExecutor
    ▼
 Executor
    │
+   ├── RetryPolicy
+   │
+   └── failover between capable nodes
+   │
    ▼
 ModelNode
    │
@@ -66,10 +70,10 @@ The `Thinker` is responsible for high-level reasoning around an objective.
 
 It can:
 
-* create an initial plan
-* evaluate execution results
-* replan after failed evaluation
-* synthesize the final result
+- create an initial plan
+- evaluate execution results
+- replan after failed evaluation
+- synthesize the final result
 
 The `Thinker` intentionally operates above the execution layer. It decides **what should happen**, while the runtime determines **how and where it happens**.
 
@@ -79,12 +83,12 @@ A task represents a logical unit of work.
 
 Tasks describe:
 
-* what aspect they address
-* their input
-* contextual information
-* expected output
-* dependencies
-* execution requirements
+- what aspect they address
+- their input
+- contextual information
+- expected output
+- dependencies
+- execution requirements
 
 A task does **not** specify which model should execute it.
 
@@ -106,15 +110,15 @@ ModelNode
 
 It is responsible for:
 
-* validating task IDs
-* validating dependencies
-* detecting duplicate dependencies
-* detecting missing dependencies
-* detecting dependency cycles
-* identifying root tasks
-* finding ready tasks
-* finding direct dependents
-* producing topological ordering
+- validating task IDs
+- validating dependencies
+- detecting duplicate dependencies
+- detecting missing dependencies
+- detecting dependency cycles
+- identifying root tasks
+- finding ready tasks
+- finding direct dependents
+- producing topological ordering
 
 This keeps DAG semantics separate from the execution mechanics.
 
@@ -147,11 +151,11 @@ A `ModelNode` represents an execution resource.
 
 A node may represent:
 
-* a local language model
-* a remote model API
-* a specialized model
-* a deterministic tool
-* another computational worker
+- a local language model
+- a remote model API
+- a specialized model
+- a deterministic tool
+- another computational worker
 
 Nodes advertise their capabilities so the fabric can select an appropriate execution resource for each task.
 
@@ -179,10 +183,10 @@ QualityFirstPolicy
 
 It filters candidates according to execution requirements such as:
 
-* minimum quality
-* minimum context window
-* local-only execution
-* maximum latency
+- minimum quality
+- minimum context window
+- local-only execution
+- maximum latency
 
 It then selects the highest-quality capable node.
 
@@ -230,7 +234,7 @@ The planner therefore answers:
 
 `PlanExecutor` executes a physical plan while respecting task dependencies.
 
-It uses `TaskGraph` to determine which tasks are ready to execute.
+It uses the task graph to determine which tasks are ready to execute.
 
 Independent tasks can execute concurrently, subject to `maxConcurrency`.
 
@@ -257,7 +261,9 @@ B ── blocked
 
 A blocked task is not sent to its model node.
 
-`PlanExecutor` also coordinates execution lifecycle tracking through `ExecutionState` and records execution events through `ExecutionHistory`.
+`PlanExecutor` coordinates execution lifecycle tracking through `ExecutionState` and records execution events through `ExecutionHistory`.
+
+It is responsible for **orchestrating tasks**, not deciding which model should perform them.
 
 ### ExecutionState
 
@@ -344,27 +350,28 @@ task_completed
 
 This separation provides the foundation for:
 
-* execution timelines
-* debugging
-* progress reporting
-* metrics
-* tracing
-* DAG visualization
-* retry analysis
-* future scheduling decisions
+- execution timelines
+- debugging
+- progress reporting
+- metrics
+- tracing
+- DAG visualization
+- retry analysis
+- future scheduling decisions
 
 `ExecutionHistory` is currently a simple in-memory execution record. More advanced persistence or observability mechanisms can be introduced later without changing the core task execution model.
 
 ### Executor
 
-`Executor` handles execution against a specific node.
+`Executor` handles execution against model nodes.
 
 It is responsible for:
 
-* looking up nodes
-* executing tasks
-* retrying failed execution when configured
-* converting thrown node errors into `Result`s
+- looking up nodes
+- executing tasks
+- applying retry policies
+- converting thrown node errors into `Result`s
+- failing over between capable nodes when execution is exhausted
 
 Node selection is intentionally outside this class.
 
@@ -377,10 +384,76 @@ NodeSelector
     ▼
 Executor
     │
-    │ executes
+    │ executes reliably
     ▼
 ModelNode
 ```
+
+#### Retry and Failover
+
+Retry and node failover are deliberately separate concepts.
+
+A retry occurs **within the currently selected node**.
+
+Failover occurs **after that node's retry policy has been exhausted**.
+
+```text
+                 Task
+                   │
+                   ▼
+                Node A
+                   │
+          ┌────────┼────────┐
+          ▼        ▼        ▼
+       attempt   attempt   attempt
+          1        2        3
+          │        │        │
+          ❌        ❌        ❌
+                            │
+                       retries exhausted
+                            │
+                            ▼
+                         Node B
+                            │
+                            ▼
+                            ✅
+```
+
+This establishes the runtime contract:
+
+> **Retry within a node first; fail over to another capable node only after that node's retry policy is exhausted.**
+
+A node that eventually succeeds prevents unnecessary failover:
+
+```text
+Node A
+  ├── attempt 1 ❌
+  ├── attempt 2 ❌
+  └── attempt 3 ✅
+
+Node B
+  └── never executed
+```
+
+When all capable nodes are exhausted, the executor returns the final failure result.
+
+This keeps responsibilities clean:
+
+```text
+RetryPolicy
+    │
+    └── How many attempts should this node receive?
+
+Executor
+    │
+    └── When should execution move to another node?
+
+NodeSelector
+    │
+    └── Which capable node should be selected?
+```
+
+An explicit `executeOn(task, nodeId)` execution targets one specific node and does not perform node selection or failover.
 
 ### Evaluator
 
@@ -388,9 +461,9 @@ The evaluator assesses individual execution results.
 
 Its output is represented by an `Evaluation` containing:
 
-* task ID
-* acceptance status
-* issues
+- task ID
+- acceptance status
+- issues
 
 Execution success and evaluation acceptance are deliberately separate concepts.
 
@@ -478,6 +551,12 @@ Current task state and historical execution events are represented separately.
 
 This keeps runtime state useful for orchestration while keeping execution history useful for observability and analysis.
 
+### Reliable Execution
+
+Retries and node failover are explicit runtime responsibilities.
+
+A transient failure should not necessarily terminate execution, while a persistently failing node should not prevent another capable node from being used.
+
 ### Test-Driven Architecture
 
 New abstractions are introduced through explicit behavioral contracts and tested before being integrated into the execution path.
@@ -488,19 +567,22 @@ The test suite provides the behavioral safety net for the architecture.
 
 Coverage currently includes:
 
-* node selection
-* scheduling policies
-* planning
-* execution
-* retries
-* dependency handling
-* DAG validation
-* cycle detection
-* concurrency
-* execution state
-* execution history
-* evaluation and replanning
-* fabric orchestration
+- node selection
+- scheduling policies
+- planning
+- execution
+- retries
+- retry attempt tracking
+- node failover
+- dependency handling
+- DAG validation
+- cycle detection
+- concurrency
+- execution state
+- execution history
+- execution event recording
+- evaluation and replanning
+- fabric orchestration
 
 Run the suite with:
 
@@ -508,54 +590,57 @@ Run the suite with:
 npm test
 ```
 
-The project currently has **127 passing tests**.
+The project currently has **157 passing tests**.
 
 ## Current Status
 
 The major runtime pieces currently in place are:
 
-* [x] Task model
-* [x] Plan model
-* [x] Physical plan
-* [x] Model nodes
-* [x] Node registry
-* [x] Capability model
-* [x] Execution requirements
-* [x] Node selection
-* [x] Quality-first scheduling policy
-* [x] Planner
-* [x] Executor
-* [x] Retry policy
-* [x] Plan executor
-* [x] DAG dependency handling
-* [x] Task graph validation
-* [x] Cycle detection
-* [x] Concurrent execution
-* [x] Plan validation
-* [x] Execution state
-* [x] Execution history
-* [x] Execution event recording
-* [x] Evaluator
-* [x] Thinker interface
-* [x] Evaluation/replanning loop
-* [x] Fabric orchestration
-* [x] Runtime test coverage
+- [x] Task model
+- [x] Plan model
+- [x] Physical plan
+- [x] Model nodes
+- [x] Node registry
+- [x] Capability model
+- [x] Execution requirements
+- [x] Node selection
+- [x] Quality-first scheduling policy
+- [x] Planner
+- [x] Executor
+- [x] Retry policy
+- [x] Retry attempt tracking
+- [x] Node failover
+- [x] Plan executor
+- [x] DAG dependency handling
+- [x] Task graph validation
+- [x] Cycle detection
+- [x] Concurrent execution
+- [x] Plan validation
+- [x] Execution state
+- [x] Execution history
+- [x] Execution event recording
+- [x] Evaluator
+- [x] Thinker interface
+- [x] Evaluation/replanning loop
+- [x] Fabric orchestration
+- [x] Runtime test coverage
 
 ## Next
 
 The next architectural focus is **observability and execution introspection**.
 
-With explicit task graphs, execution state, and execution history, Pi Fabric now has the foundation for:
+With explicit task graphs, execution state, execution history, retry semantics, and node failover, Pi Fabric now has the foundation for:
 
-* execution timelines
-* progress reporting
-* task duration metrics
-* critical-path analysis
-* execution tracing
-* debugging tools
-* DAG visualization
-* retry history
-* richer scheduling decisions
+- execution timelines
+- progress reporting
+- task duration metrics
+- critical-path analysis
+- execution tracing
+- debugging tools
+- DAG visualization
+- retry history
+- node failover analysis
+- richer scheduling decisions
 
 The goal is to make the fabric not only capable of executing a plan, but also capable of explaining:
 

@@ -1147,3 +1147,136 @@ The important thing is that these capabilities can now be added **around the exe
 ```
 
 ```
+
+## Execution Failure and Recovery
+
+Execution failures are handled at the `Executor` layer.
+
+The runtime distinguishes between **retrying a node** and **failing over to another node**.
+
+A retry occurs when the selected node fails but the configured `RetryPolicy` permits another attempt:
+
+```text
+Task
+ │
+ ▼
+Node A
+ │
+ ├── attempt 1 ──► failure
+ │
+ ├── attempt 2 ──► failure
+ │
+ └── attempt 3 ──► success
+```
+
+If the node exhausts its retry policy without succeeding, the executor marks that node as attempted and selects another capable node:
+
+```text
+Task
+ │
+ ▼
+Node A
+ ├── attempt 1 ──► failure
+ ├── attempt 2 ──► failure
+ └── attempt 3 ──► failure
+                    │
+                    ▼
+                 Node B
+                    │
+                 attempt 1
+                    │
+                    ▼
+                  success
+```
+
+The responsibilities are intentionally separated:
+
+| Component      | Responsibility                                    |
+| -------------- | ------------------------------------------------- |
+| `RetryPolicy`  | Determines whether another attempt should be made |
+| `Executor`     | Performs retries and decides when to fail over    |
+| `NodeSelector` | Selects the best capable node                     |
+| `ModelNode`    | Performs the actual task execution                |
+
+This produces the following contract:
+
+> **Retry within the selected node first. Fail over only after that node's retry policy has been exhausted.**
+
+A node that eventually succeeds prevents failover to another node.
+
+If all capable nodes are exhausted, the executor returns the final failure result.
+
+### Explicit Node Execution
+
+`Executor.executeOn(task, nodeId)` represents targeted execution.
+
+It:
+
+- resolves the specified node
+- applies the retry policy
+- returns the resulting `Result`
+
+It does **not** perform node selection or failover.
+
+`Executor.execute(task)` is the higher-level operation responsible for:
+
+1. discovering capable nodes
+2. selecting a node
+3. executing with retries
+4. excluding exhausted nodes
+5. failing over to another capable node
+6. returning success or the final failure
+
+This distinction keeps targeted execution predictable while allowing normal execution to be resilient.
+
+### Execution Lifecycle
+
+`PlanExecutor` operates above `Executor`.
+
+Its responsibility is to coordinate tasks according to the dependency graph:
+
+```text
+PlanExecutor
+     │
+     ▼
+ TaskGraph
+     │
+     ├── ready tasks
+     │
+     ▼
+ Executor
+     │
+     ├── retry
+     ├── failover
+     └── Result
+     │
+     ▼
+ExecutionState
+     │
+     └── current lifecycle state
+
+ExecutionHistory
+     │
+     └── chronological events
+```
+
+This separation means a node failure remains an execution concern, while dependency propagation remains a DAG orchestration concern.
+
+For example:
+
+```text
+A ── failed
+│
+▼
+B ── blocked
+```
+
+`Executor` determines that `A` failed.
+
+`PlanExecutor` determines that `B` cannot execute because its dependency failed.
+
+`ExecutionState` records `A` as `failed` and `B` as `blocked`.
+
+`ExecutionHistory` records the events that occurred during the execution.
+
+This separation is a core architectural boundary in Pi Fabric.

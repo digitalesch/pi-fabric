@@ -71,6 +71,12 @@ export class PlanExecutor {
           if (failedDependency) {
             this.executionState.block(physicalTask.task.id);
 
+            this.history.record({
+              type: 'task_blocked',
+              taskId: physicalTask.task.id,
+              nodeId: physicalTask.nodeId,
+            });
+
             return {
               taskId: physicalTask.task.id,
               success: false,
@@ -109,7 +115,6 @@ export class PlanExecutor {
             type: 'task_started',
             taskId: task.id,
             nodeId: physicalTask.nodeId,
-            timestamp: Date.now(),
           });
 
           const result = await this.executor.executeOn(
@@ -124,7 +129,6 @@ export class PlanExecutor {
               type: 'task_completed',
               taskId: task.id,
               nodeId: physicalTask.nodeId,
-              timestamp: Date.now(),
               result,
             });
           } else {
@@ -134,7 +138,6 @@ export class PlanExecutor {
               type: 'task_failed',
               taskId: task.id,
               nodeId: physicalTask.nodeId,
-              timestamp: Date.now(),
               result,
             });
           }

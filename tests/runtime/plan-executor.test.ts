@@ -15,22 +15,7 @@ import { RecordingNode } from '../helpers/recording-node.js';
 import { ConcurrencyNode } from '../helpers/concurrency-node.js';
 import { DelayedNode } from '../helpers/delayed-node.js';
 import { ExecutionHistory } from '../../src/runtime/execution-history.js';
-
-function createTask(id: string, dependencies: string[] = []): Task {
-  return {
-    id,
-    aspect: 'extract_requirements',
-    input: {},
-    context: {
-      facts: {},
-      constraints: [],
-      assumptions: [],
-      references: [],
-    },
-    outputSchema: {},
-    dependencies,
-  };
-}
+import { createTask } from '../helpers/create-task.js';
 
 function makeTask(id: string, dependencies: string[] = []): Task {
   return {
@@ -49,6 +34,136 @@ function makeTask(id: string, dependencies: string[] = []): Task {
 }
 
 describe('PlanExecutor execution state', () => {
+  it('records task lifecycle events for successful execution', async () => {
+    const nodeRegistry = new NodeRegistry();
+    const node = new RecordingNode('node-1');
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(new QualityFirstPolicy());
+    const taskExecutor = new Executor(nodeRegistry, selector);
+    const history = new ExecutionHistory();
+    const planExecutor = new PlanExecutor(taskExecutor, history);
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: createTask('task-1'),
+          nodeId: 'node-1',
+        },
+      ],
+    };
+
+    await planExecutor.execute(plan);
+
+    expect(history.all().map((event) => event.type)).toEqual([
+      'task_started',
+      'task_completed',
+    ]);
+  });
+
+  it('records task failure in execution history', async () => {
+    const nodeRegistry = new NodeRegistry();
+    const node = new RecordingNode('node-1');
+
+    node.execute = async (task) => ({
+      taskId: task.id,
+      success: false,
+      output: null,
+      metadata: {
+        nodeId: node.id,
+      },
+      error: {
+        code: 'TEST_FAILURE',
+        message: 'Task failed',
+      },
+    });
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(new QualityFirstPolicy());
+    const taskExecutor = new Executor(nodeRegistry, selector);
+    const history = new ExecutionHistory();
+    const planExecutor = new PlanExecutor(taskExecutor, history);
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: createTask('task-1'),
+          nodeId: 'node-1',
+        },
+      ],
+    };
+
+    await planExecutor.execute(plan);
+
+    expect(history.all().map((event) => event.type)).toEqual([
+      'task_started',
+      'task_failed',
+    ]);
+  });
+
+  it('records blocked tasks when a dependency fails', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const failingNode = new RecordingNode('failing-node');
+    const dependentNode = new RecordingNode('dependent-node');
+
+    failingNode.execute = async (task) => ({
+      taskId: task.id,
+      success: false,
+      output: null,
+      metadata: {
+        nodeId: failingNode.id,
+      },
+      error: {
+        code: 'TEST_FAILURE',
+        message: 'Task failed',
+      },
+    });
+
+    nodeRegistry.register(failingNode);
+    nodeRegistry.register(dependentNode);
+
+    const selector = new NodeSelector(new QualityFirstPolicy());
+    const taskExecutor = new Executor(nodeRegistry, selector);
+    const history = new ExecutionHistory();
+
+    const planExecutor = new PlanExecutor(taskExecutor, history);
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: createTask('task-1'),
+          nodeId: 'failing-node',
+        },
+        {
+          task: {
+            ...createTask('task-2'),
+            dependencies: ['task-1'],
+          },
+          nodeId: 'dependent-node',
+        },
+      ],
+    };
+
+    await planExecutor.execute(plan);
+
+    expect(history.all().map((event) => event.type)).toEqual([
+      'task_started',
+      'task_failed',
+      'task_blocked',
+    ]);
+
+    expect(history.all().map((event) => event.taskId)).toEqual([
+      'task-1',
+      'task-1',
+      'task-2',
+    ]);
+
+    expect(dependentNode.receivedTasks).toHaveLength(0);
+  });
+
   it('emits task lifecycle events', async () => {
     const nodeRegistry = new NodeRegistry();
 
