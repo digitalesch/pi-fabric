@@ -1,4 +1,3 @@
-````md
 # Pi Fabric
 
 Pi Fabric is an execution fabric for orchestrating heterogeneous model nodes.
@@ -13,44 +12,50 @@ Pi Fabric currently follows this execution flow:
 Objective
    │
    ▼
- Thinker
+Thinker
    │
-   │ Plan
+   │ creates Plan
    ▼
- Planner
+Planner
    │
    ├── AspectRegistry
-   ├── NodeSelector
-   │      └── SchedulingPolicy
+   ├── NodeRegistry
+   └── NodeSelector
+          │
+          └── SchedulingPolicy
    │
    ▼
 PhysicalPlan
    │
    ▼
-TaskGraph
-   │
-   ▼
 PlanExecutor
    │
-   ▼
- Executor
+   ├── TaskGraph
+   └── ExecutionState
    │
    ▼
- ModelNode
+Executor
    │
    ▼
- Result
+ModelNode
    │
    ▼
- Evaluator
+Result
    │
    ▼
- Thinker
+Evaluator
    │
-   ├── accept → Synthesize
+   ▼
+Thinker
    │
-   └── reject → Replan
-````
+   ├── accepted ──► Synthesize
+   │
+   └── rejected ──► Replan
+                         │
+                         └──► execute again
+```
+
+For a deeper explanation of the execution model, see [`docs/execution-model.md`](docs/execution-model.md).
 
 ## Core Concepts
 
@@ -65,29 +70,7 @@ It can:
 * replan after failed evaluation
 * synthesize the final result
 
-```ts
-interface Thinker {
-  plan(objective: Objective): Promise<Plan>;
-
-  evaluate(
-    objective: Objective,
-    results: Result[],
-    evaluations: Evaluation[],
-  ): Promise<EvaluationDecision>;
-
-  replan(
-    objective: Objective,
-    previousPlan: Plan,
-    results: Result[],
-    evaluations: Evaluation[],
-  ): Promise<Plan>;
-
-  synthesize(
-    objective: Objective,
-    results: Result[],
-  ): Promise<string>;
-}
-```
+The `Thinker` intentionally operates above the execution layer. It decides **what should happen**, while the runtime determines **how and where it happens**.
 
 ### Task
 
@@ -102,25 +85,18 @@ Tasks describe:
 * dependencies
 * execution requirements
 
-```ts
-interface Task {
-  id: string;
-  aspect: string;
-  input: unknown;
+A task does **not** specify which model should execute it.
 
-  context: {
-    facts: Record<string, unknown>;
-    constraints: string[];
-    assumptions: string[];
-    references: string[];
-  };
+This distinction is fundamental:
 
-  outputSchema: unknown;
+```text
+Task
+  │
+  └── describes WHAT needs to happen
 
-  dependencies: string[];
-
-  requirements?: ExecutionRequirements;
-}
+ModelNode
+  │
+  └── describes WHERE / WITH WHAT resource it happens
 ```
 
 ### TaskGraph
@@ -139,7 +115,9 @@ It is responsible for:
 * finding direct dependents
 * producing topological ordering
 
-This keeps DAG semantics out of the executor itself.
+This keeps DAG semantics separate from the execution mechanics.
+
+For example:
 
 ```text
        A
@@ -166,21 +144,27 @@ graph.ready(completed);
 
 A `ModelNode` represents an execution resource.
 
-Nodes advertise their capabilities so the fabric can select an appropriate node for each task.
+A node may represent:
 
-A capability describes:
+* a local language model
+* a remote model API
+* a specialized model
+* a deterministic tool
+* another computational worker
 
-```ts
-interface Capability {
-  aspect: string;
-  quality: number;
-  contextWindow: number;
-  latencyMs?: number;
-  local: boolean;
-}
+Nodes advertise their capabilities so the fabric can select an appropriate execution resource for each task.
+
+A capability describes properties such as:
+
+```text
+aspect
+quality
+context window
+latency
+locality
 ```
 
-This allows the same task to potentially be executed by different models.
+This allows the same logical task to potentially be executed by different models.
 
 ### Node Selection
 
@@ -199,9 +183,19 @@ It filters candidates according to execution requirements such as:
 * local-only execution
 * maximum latency
 
-and then selects the highest-quality capable node.
+It then selects the highest-quality capable node.
 
 This separation allows additional scheduling policies to be introduced without changing the planner or executor.
+
+Future policies could include:
+
+```text
+QualityFirst
+LatencyFirst
+LocalFirst
+CostFirst
+LoadAware
+```
 
 ### Planner
 
@@ -209,7 +203,7 @@ The `Planner` converts a logical `Plan` into a `PhysicalPlan`.
 
 For every task it:
 
-1. finds nodes capable of handling the task aspect
+1. finds nodes capable of handling the task's aspect
 2. applies the configured scheduling policy
 3. assigns the selected node
 4. produces a physical task
@@ -227,11 +221,15 @@ NodeSelector
 Physical Task
 ```
 
+The planner therefore answers:
+
+> **Where should this task run?**
+
 ### PlanExecutor
 
 `PlanExecutor` executes a physical plan while respecting task dependencies.
 
-It uses `TaskGraph` to determine which tasks are ready to execute.
+It uses the task graph to determine which tasks are ready to execute.
 
 Independent tasks can execute concurrently, subject to `maxConcurrency`.
 
@@ -245,7 +243,7 @@ For example:
        D
 ```
 
-`B` and `C` can execute concurrently once `A` completes.
+Once `A` completes, `B` and `C` can execute concurrently.
 
 The executor also propagates dependency failures:
 
@@ -257,6 +255,40 @@ B ── blocked
 ```
 
 A blocked task is not sent to its model node.
+
+### ExecutionState
+
+`ExecutionState` represents the lifecycle of tasks during execution.
+
+A task can move through states such as:
+
+```text
+pending
+   │
+   ▼
+running
+   │
+   ├──► completed
+   │
+   └──► failed
+
+pending
+   │
+   ▼
+blocked
+```
+
+This separates execution lifecycle from execution results.
+
+A `Result` answers:
+
+> What did execution produce?
+
+`ExecutionState` answers:
+
+> What happened to this task?
+
+This provides the foundation for observability, debugging, execution history, and future scheduling decisions.
 
 ### Executor
 
@@ -271,6 +303,20 @@ It is responsible for:
 
 Node selection is intentionally outside this class.
 
+The separation is:
+
+```text
+NodeSelector
+    │
+    │ chooses WHERE
+    ▼
+Executor
+    │
+    │ executes
+    ▼
+ModelNode
+```
+
 ### Evaluator
 
 The evaluator assesses individual execution results.
@@ -281,7 +327,24 @@ Its output is represented by an `Evaluation` containing:
 * acceptance status
 * issues
 
-The fabric uses these evaluations to determine whether the overall execution should be accepted or replanned.
+Execution success and evaluation acceptance are deliberately separate concepts.
+
+A task can execute successfully while still producing a result that the evaluator rejects:
+
+```text
+ModelNode
+   │
+   ▼
+Result
+success = true
+   │
+   ▼
+Evaluator
+   │
+   ▼
+Evaluation
+accepted = false
+```
 
 ### Fabric
 
@@ -309,16 +372,46 @@ Evaluate
   │
   ├── accepted ──► Synthesize
   │
-  └── rejected ─► Replan
-                    │
-                    └──► Execute again
+  └── rejected ──► Replan
+                       │
+                       └──► Execute again
 ```
 
 The fabric limits the number of execution/replanning attempts to prevent unbounded loops.
 
+## Design Principles
+
+Pi Fabric is being built around a few core principles.
+
+### Separation of Concerns
+
+Planning, scheduling, execution, evaluation, and orchestration should remain independently replaceable.
+
+### Capability-Driven Execution
+
+Tasks should describe what they need rather than which model should execute them.
+
+### Policy-Driven Scheduling
+
+Node selection should be configurable through scheduling policies.
+
+### DAG-Native Execution
+
+Dependencies are first-class objects rather than incidental executor logic.
+
+### Model Heterogeneity
+
+Different tasks can be assigned to different models based on their capabilities and requirements.
+
+### Test-Driven Architecture
+
+New abstractions are introduced through explicit behavioral contracts and tested before being integrated into the execution path.
+
 ## Testing
 
-The project currently has extensive coverage across the runtime components, including:
+The test suite provides the behavioral safety net for the architecture.
+
+Coverage currently includes:
 
 * node selection
 * scheduling policies
@@ -329,10 +422,9 @@ The project currently has extensive coverage across the runtime components, incl
 * DAG validation
 * cycle detection
 * concurrency
+* execution state
 * evaluation and replanning
 * fabric orchestration
-
-The test suite currently contains **109 passing tests**.
 
 Run the suite with:
 
@@ -340,37 +432,11 @@ Run the suite with:
 npm test
 ```
 
-## Design Principles
-
-Pi Fabric is being built around a few core principles.
-
-### Separation of concerns
-
-Planning, scheduling, execution, evaluation, and orchestration should remain independently replaceable.
-
-### Capability-driven execution
-
-Tasks should describe what they need rather than which model should execute them.
-
-### Policy-driven scheduling
-
-Node selection should be configurable through scheduling policies.
-
-### DAG-native execution
-
-Dependencies are first-class objects rather than incidental executor logic.
-
-### Model heterogeneity
-
-Different tasks can be assigned to different models based on their capabilities and requirements.
-
-### Test-driven architecture
-
-New abstractions are introduced through explicit behavioral contracts and tested before being integrated into the execution path.
+The project currently has **122+ passing tests**.
 
 ## Current Status
 
-Pi Fabric currently has the following major pieces in place:
+The major runtime pieces currently in place are:
 
 * [x] Task model
 * [x] Plan model
@@ -390,37 +456,27 @@ Pi Fabric currently has the following major pieces in place:
 * [x] Cycle detection
 * [x] Concurrent execution
 * [x] Plan validation
+* [x] Execution state
 * [x] Evaluator
 * [x] Thinker interface
 * [x] Evaluation/replanning loop
 * [x] Fabric orchestration
-* [x] Comprehensive runtime test coverage
+* [x] Runtime test coverage
 
-### Next
+## Next
 
-The next architectural step is to make execution state observable and explicit.
+The next architectural focus is **observability and execution introspection**.
 
-This will allow the fabric to represent task lifecycle state such as:
+With explicit execution state and a first-class task graph, Pi Fabric now has the foundation for:
 
-```text
-pending
-   │
-   ▼
-running
-   │
-   ├──► completed
-   │
-   └──► failed
+* execution events
+* progress reporting
+* execution history
+* metrics
+* tracing
+* debugging
+* DAG visualization
+* retry history
+* richer scheduling decisions
 
-pending
-   │
-   ▼
-blocked
-```
-
-This will provide a foundation for execution observability, metrics, debugging, DAG visualization, and eventually richer scheduling behavior.
-
-```
-```
-
-For a detailed explanation of how an objective flows through the system, see [`docs/execution-model.md`](docs/execution-model.md).
+The goal is to make the fabric not only capable of executing a plan, but also capable of explaining **what it is doing, why it is doing it, and what happened at each stage**.
