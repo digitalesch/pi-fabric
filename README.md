@@ -422,3 +422,5 @@ This will provide a foundation for execution observability, metrics, debugging, 
 
 ```
 ```
+
+For a detailed explanation of how an objective flows through the system, see [`docs/execution-model.md`](docs/execution-model.md).

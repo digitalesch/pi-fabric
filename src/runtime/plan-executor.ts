@@ -2,35 +2,61 @@ import type { PhysicalPlan } from '../core/physical-plan.js';
 import type { Result } from '../core/result.js';
 
 import { Executor } from './executor.js';
+import { ExecutionState } from './execution-state.js';
 import { TaskGraph } from './task-graph.js';
 
 export class PlanExecutor {
+  public readonly executionState: ExecutionState;
+
   constructor(
     private readonly executor: Executor,
     private readonly maxConcurrency = Infinity,
   ) {
     if (
       maxConcurrency !== Infinity &&
-      (!Number.isInteger(maxConcurrency) || maxConcurrency <= 0)
+      (!Number.isInteger(maxConcurrency) ||
+        maxConcurrency <= 0)
     ) {
-      throw new Error('maxConcurrency must be a positive integer');
+      throw new Error(
+        'maxConcurrency must be a positive integer',
+      );
     }
+
+    this.executionState = new ExecutionState();
   }
 
   async execute(plan: PhysicalPlan): Promise<Result[]> {
     const graph = new TaskGraph(
-      plan.tasks.map((physicalTask) => physicalTask.task),
+      plan.tasks.map(
+        (physicalTask) => physicalTask.task,
+      ),
+    );
+
+    this.executionState.initialize(
+      plan.tasks.map(
+        (physicalTask) => physicalTask.task,
+      ),
     );
 
     const physicalTasks = new Map(
-      plan.tasks.map((physicalTask) => [physicalTask.task.id, physicalTask]),
+      plan.tasks.map(
+        (physicalTask) => [
+          physicalTask.task.id,
+          physicalTask,
+        ],
+      ),
     );
 
-    const completed = new Set<string>();
-    const results = new Map<string, Result>();
+    const completed = new Map<string, Result>();
 
     while (completed.size < plan.tasks.length) {
-      const ready = graph.ready(completed);
+      const completedIds = new Set(
+        completed.keys(),
+      );
+
+      const ready = graph.ready(
+        completedIds,
+      );
 
       if (ready.length === 0) {
         throw new Error(
@@ -38,35 +64,36 @@ export class PlanExecutor {
         );
       }
 
-      const batch = ready.slice(0, this.maxConcurrency);
+      const runnable = ready.map(
+        (task) =>
+          physicalTasks.get(task.id)!,
+      );
+
+      const batch = runnable.slice(
+        0,
+        this.maxConcurrency,
+      );
 
       const batchResults = await Promise.all(
-        batch.map(async (task) => {
-          const physicalTask = physicalTasks.get(task.id);
+        batch.map(async (physicalTask) => {
+          const dependencies =
+            physicalTask.task.dependencies.map(
+              (dependency) =>
+                completed.get(dependency)!,
+            );
 
-          if (!physicalTask) {
-            throw new Error(`Physical task not found: ${task.id}`);
-          }
-
-          const dependencyResults = graph
-            .dependencies(task.id)
-            .map((dependency) => {
-              const result = results.get(dependency);
-
-              if (!result) {
-                throw new Error(`Dependency result not found: ${dependency}`);
-              }
-
-              return result;
-            });
-
-          const failedDependency = dependencyResults.find(
-            (result) => !result.success,
-          );
+          const failedDependency =
+            dependencies.find(
+              (result) => !result.success,
+            );
 
           if (failedDependency) {
+            this.executionState.block(
+              physicalTask.task.id,
+            );
+
             return {
-              taskId: task.id,
+              taskId: physicalTask.task.id,
               success: false,
               output: null,
               metadata: {
@@ -79,42 +106,65 @@ export class PlanExecutor {
             };
           }
 
-          const dependencyOutputs = Object.fromEntries(
-            graph
-              .dependencies(task.id)
-              .map((dependency, index) => [
-                dependency,
-                dependencyResults[index],
-              ]),
-          );
+          const dependencyOutputs =
+            Object.fromEntries(
+              physicalTask.task.dependencies.map(
+                (dependency, index) => [
+                  dependency,
+                  dependencies[index],
+                ],
+              ),
+            );
 
-          const taskWithDependencies = {
-            ...task,
+          const task = {
+            ...physicalTask.task,
             context: {
-              ...task.context,
+              ...physicalTask.task.context,
               facts: {
-                ...task.context.facts,
+                ...physicalTask.task.context.facts,
                 dependencies: dependencyOutputs,
               },
             },
           };
 
-          return this.executor.executeOn(
-            taskWithDependencies,
-            physicalTask.nodeId,
+          this.executionState.start(
+            task.id,
           );
+
+          const result =
+            await this.executor.executeOn(
+              task,
+              physicalTask.nodeId,
+            );
+
+          if (result.success) {
+            this.executionState.complete(
+              task.id,
+              result,
+            );
+          } else {
+            this.executionState.fail(
+              task.id,
+              result,
+            );
+          }
+
+          return result;
         }),
       );
 
-      for (let i = 0; i < batch.length; i++) {
-        const task = batch[i];
-        const result = batchResults[i];
-
-        completed.add(task.id);
-        results.set(task.id, result);
+      for (
+        let i = 0;
+        i < batch.length;
+        i++
+      ) {
+        completed.set(
+          batch[i].task.id,
+          batchResults[i],
+        );
       }
     }
 
-    return plan.tasks.map((physicalTask) => results.get(physicalTask.task.id)!);
+    return [...completed.values()];
   }
 }

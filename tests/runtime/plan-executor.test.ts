@@ -47,7 +47,308 @@ function makeTask(id: string, dependencies: string[] = []): Task {
   };
 }
 
-describe('PlanExecutor concurrency', () => {
+describe('PlanExecutor execution state', () => {
+  it('tracks successful task execution', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const node = new RecordingNode('node');
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+    );
+
+    const taskExecutor = new Executor(
+      nodeRegistry,
+      selector,
+    );
+
+    const planExecutor = new PlanExecutor(
+      taskExecutor,
+    );
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: {
+            id: 'task-1',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: [],
+          },
+          nodeId: 'node',
+        },
+      ],
+    };
+
+    const results = await planExecutor.execute(plan);
+
+    expect(results).toHaveLength(1);
+
+    expect(
+      planExecutor.executionState.get('task-1'),
+    ).toMatchObject({
+      taskId: 'task-1',
+      status: 'completed',
+      result: results[0],
+    });
+  });
+
+  it('tracks failed task execution', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const node = new RecordingNode('node');
+
+    const originalExecute = node.execute.bind(node);
+
+    node.execute = async (task) => {
+      await originalExecute(task);
+
+      return {
+        taskId: task.id,
+        success: false,
+        output: null,
+        metadata: {
+          nodeId: node.id,
+        },
+        error: {
+          code: 'TEST_FAILURE',
+          message: 'Task failed',
+        },
+      };
+    };
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+    );
+
+    const taskExecutor = new Executor(
+      nodeRegistry,
+      selector,
+    );
+
+    const planExecutor = new PlanExecutor(
+      taskExecutor,
+    );
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: {
+            id: 'task-1',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: [],
+          },
+          nodeId: 'node',
+        },
+      ],
+    };
+
+    const results = await planExecutor.execute(plan);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].success).toBe(false);
+
+    expect(
+      planExecutor.executionState.get('task-1'),
+    ).toMatchObject({
+      taskId: 'task-1',
+      status: 'failed',
+      result: results[0],
+    });
+  });
+
+  it('tracks blocked dependent tasks', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const failingNode = new RecordingNode('failing-node');
+    const dependentNode = new RecordingNode('dependent-node');
+
+    const originalExecute =
+      failingNode.execute.bind(failingNode);
+
+    failingNode.execute = async (task) => {
+      await originalExecute(task);
+
+      return {
+        taskId: task.id,
+        success: false,
+        output: null,
+        metadata: {
+          nodeId: failingNode.id,
+        },
+        error: {
+          code: 'TEST_FAILURE',
+          message: 'Task failed',
+        },
+      };
+    };
+
+    nodeRegistry.register(failingNode);
+    nodeRegistry.register(dependentNode);
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+    );
+
+    const taskExecutor = new Executor(
+      nodeRegistry,
+      selector,
+    );
+
+    const planExecutor = new PlanExecutor(
+      taskExecutor,
+    );
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: {
+            id: 'task-1',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: [],
+          },
+          nodeId: 'failing-node',
+        },
+        {
+          task: {
+            id: 'task-2',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: ['task-1'],
+          },
+          nodeId: 'dependent-node',
+        },
+      ],
+    };
+
+    const results = await planExecutor.execute(plan);
+
+    expect(results).toHaveLength(2);
+
+    expect(
+      planExecutor.executionState.get('task-1'),
+    ).toMatchObject({
+      taskId: 'task-1',
+      status: 'failed',
+    });
+
+    expect(
+      planExecutor.executionState.get('task-2'),
+    ).toMatchObject({
+      taskId: 'task-2',
+      status: 'blocked',
+    });
+
+    expect(dependentNode.receivedTasks).toHaveLength(0);
+  });
+
+  it('exposes all task execution states', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const node = new RecordingNode('node');
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+    );
+
+    const taskExecutor = new Executor(
+      nodeRegistry,
+      selector,
+    );
+
+    const planExecutor = new PlanExecutor(
+      taskExecutor,
+    );
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: {
+            id: 'task-1',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: [],
+          },
+          nodeId: 'node',
+        },
+        {
+          task: {
+            id: 'task-2',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: [],
+          },
+          nodeId: 'node',
+        },
+      ],
+    };
+
+    await planExecutor.execute(plan);
+
+    expect(
+      planExecutor.executionState.all(),
+    ).toMatchObject([
+      {
+        taskId: 'task-1',
+        status: 'completed',
+      },
+      {
+        taskId: 'task-2',
+        status: 'completed',
+      },
+    ]);
+  });
+
   it('executes independent tasks concurrently', async () => {
     const nodeRegistry = new NodeRegistry();
 
