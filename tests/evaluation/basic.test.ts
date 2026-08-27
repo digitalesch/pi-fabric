@@ -21,6 +21,9 @@ describe('BasicEvaluator', () => {
       taskId: 'task-1',
       accepted: true,
       issues: [],
+      feedback: {
+        confidence: 1,
+      },
     });
   });
 
@@ -42,6 +45,9 @@ describe('BasicEvaluator', () => {
       taskId: 'task-1',
       accepted: false,
       issues: ['model unavailable'],
+      feedback: {
+        confidence: 1,
+      },
     });
   });
 
@@ -59,6 +65,9 @@ describe('BasicEvaluator', () => {
       taskId: 'task-1',
       accepted: false,
       issues: ['Task produced no output'],
+      feedback: {
+        confidence: 1,
+      },
     });
   });
 });

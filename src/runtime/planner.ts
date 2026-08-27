@@ -1,32 +1,26 @@
-import type { PhysicalPlan } from '../core/physical-plan.js';
 import type { Plan } from '../core/plan.js';
-import { NodeSelector } from './node-selector.js';
-import { NodeRegistry } from './registry.js';
+import type { PhysicalPlan } from '../core/physical-plan.js';
+import type { NodeSelector } from './node-selector.js';
+import type { NodeRegistry } from './registry.js';
 
 export class Planner {
   constructor(
-    private readonly registry: NodeRegistry,
+    private readonly nodeRegistry: NodeRegistry,
     private readonly selector: NodeSelector,
   ) {}
 
   plan(plan: Plan): PhysicalPlan {
-    const tasks = plan.tasks.map((task) => {
-      const nodes = this.registry.findFor(task.aspect);
-
-      if (nodes.length === 0) {
-        throw new Error(`No node available for aspect: ${task.aspect}`);
-      }
-
-      const node = this.selector.select(nodes, task.aspect, task.requirements);
-
-      return {
-        task,
-        nodeId: node.id,
-      };
-    });
-
     return {
-      tasks,
+      tasks: plan.tasks.map((task) => {
+        const nodes = this.nodeRegistry.findFor(task.aspect);
+
+        const node = this.selector.select(nodes, task.aspect);
+
+        return {
+          task,
+          nodeId: node.id,
+        };
+      }),
     };
   }
 }

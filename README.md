@@ -4,13 +4,13 @@ Pi Fabric is an experimental orchestration framework for building **model-driven
 
 The core idea is to separate:
 
-* **Thinking** — deciding what should happen
-* **Planning** — turning intent into executable work
-* **Scheduling** — selecting capable nodes
-* **Execution** — running tasks
-* **Evaluation** — determining whether results are acceptable
-* **Replanning** — adapting when execution is not good enough
-* **Synthesis** — producing the final result
+- **Thinking** — deciding what should happen
+- **Planning** — turning intent into executable work
+- **Scheduling** — selecting capable nodes
+- **Execution** — running tasks
+- **Evaluation** — determining whether results are acceptable
+- **Replanning** — adapting when execution is not good enough
+- **Synthesis** — producing the final result
 
 The long-term goal is a system where a larger reasoning model can act as a **master thinker/orchestrator**, delegating specialized work to smaller local or remote models.
 
@@ -196,10 +196,10 @@ Aspects allow the system to reason about **what kind of capability is needed**, 
 
 Nodes advertise the aspects they can perform along with execution characteristics such as:
 
-* quality
-* context window
-* latency
-* locality
+- quality
+- context window
+- latency
+- locality
 
 This allows the scheduler to select an appropriate node.
 
@@ -278,9 +278,7 @@ The Thinker is the highest-level orchestration component.
 
 ```ts
 export interface Thinker {
-  plan(
-    objective: Objective,
-  ): Promise<Plan>;
+  plan(objective: Objective): Promise<Plan>;
 
   evaluate(
     objective: Objective,
@@ -288,10 +286,7 @@ export interface Thinker {
     evaluations: Evaluation[],
   ): Promise<unknown>;
 
-  synthesize(
-    objective: Objective,
-    results: Result[],
-  ): Promise<string>;
+  synthesize(objective: Objective, results: Result[]): Promise<string>;
 
   replan(
     objective: Objective,
@@ -365,12 +360,12 @@ The selector can then choose between them according to requirements and scheduli
 
 It currently handles:
 
-* node lookup
-* node execution
-* failed `Result`s
-* thrown execution errors
-* retry policies
-* fallback to other capable nodes
+- node lookup
+- node execution
+- failed `Result`s
+- thrown execution errors
+- retry policies
+- fallback to other capable nodes
 
 An important distinction was established:
 
@@ -395,17 +390,14 @@ Retries are controlled through:
 
 ```ts
 export interface RetryPolicy {
-  shouldRetry(
-    attempt: number,
-    error: unknown,
-  ): boolean;
+  shouldRetry(attempt: number, error: unknown): boolean;
 }
 ```
 
 The Executor applies retry policies to both:
 
-* thrown errors
-* unsuccessful `Result`s
+- thrown errors
+- unsuccessful `Result`s
 
 This keeps retry behavior independent from the Executor itself.
 
@@ -456,10 +448,7 @@ Independent tasks can execute concurrently.
 A configurable concurrency limit prevents unlimited parallel execution.
 
 ```ts
-new PlanExecutor(
-  executor,
-  2,
-);
+new PlanExecutor(executor, 2);
 ```
 
 ### Dependency failure propagation
@@ -543,9 +532,9 @@ This distinction is central to the control loop.
 
 `BasicEvaluator` currently performs simple checks:
 
-* execution failure → rejected
-* missing output → rejected
-* otherwise → accepted
+- execution failure → rejected
+- missing output → rejected
+- otherwise → accepted
 
 The evaluator architecture is designed to eventually support model-based evaluation.
 
@@ -722,8 +711,7 @@ The basic integration test currently looks conceptually like:
 const fabric = createFabric();
 
 const result = await fabric.run({
-  description:
-    "Analyze a mechanical design and identify its requirements.",
+  description: 'Analyze a mechanical design and identify its requirements.',
 });
 ```
 
@@ -739,26 +727,26 @@ The project currently has a substantial test suite covering the runtime architec
 
 The suite covers:
 
-* node selection
-* capability matching
-* execution
-* execution failures
-* retries
-* node fallback
-* plan execution
-* dependency ordering
-* concurrent execution
-* concurrency limits
-* dependency failures
-* transport behavior
-* inference adapters
-* plan validation
-* aspect registration
-* Fabric orchestration
-* evaluation
-* replanning
-* evaluation-driven control flow
-* feedback propagation
+- node selection
+- capability matching
+- execution
+- execution failures
+- retries
+- node fallback
+- plan execution
+- dependency ordering
+- concurrent execution
+- concurrency limits
+- dependency failures
+- transport behavior
+- inference adapters
+- plan validation
+- aspect registration
+- Fabric orchestration
+- evaluation
+- replanning
+- evaluation-driven control flow
+- feedback propagation
 
 Current state:
 
@@ -875,46 +863,46 @@ without embedding domain-specific reasoning.
 
 ## Near Term
 
-* [x] Core task/plan/result model
-* [x] Aspect registry
-* [x] Capability model
-* [x] Node registry
-* [x] Node selection
-* [x] Quality-first scheduling policy
-* [x] Executor
-* [x] Retry policy
-* [x] Node fallback
-* [x] Plan executor
-* [x] Dependency handling
-* [x] Concurrent execution
-* [x] Concurrency limits
-* [x] Plan validation
-* [x] Transport abstraction
-* [x] In-process transport
-* [x] Child-process transport
-* [x] Thinker abstraction
-* [x] Evaluator abstraction
-* [x] Evaluation-driven replanning
-* [x] Attempt limits
-* [x] Fabric composition root
-* [x] Test factory
-* [x] Structured evaluation feedback field
+- [x] Core task/plan/result model
+- [x] Aspect registry
+- [x] Capability model
+- [x] Node registry
+- [x] Node selection
+- [x] Quality-first scheduling policy
+- [x] Executor
+- [x] Retry policy
+- [x] Node fallback
+- [x] Plan executor
+- [x] Dependency handling
+- [x] Concurrent execution
+- [x] Concurrency limits
+- [x] Plan validation
+- [x] Transport abstraction
+- [x] In-process transport
+- [x] Child-process transport
+- [x] Thinker abstraction
+- [x] Evaluator abstraction
+- [x] Evaluation-driven replanning
+- [x] Attempt limits
+- [x] Fabric composition root
+- [x] Test factory
+- [x] Structured evaluation feedback field
 
 ## Next
 
-* [ ] Define a stronger feedback/context contract
-* [ ] Improve evaluation semantics
-* [ ] Separate execution failure from quality failure more explicitly
-* [ ] Add richer evaluator implementations
-* [ ] Improve plan validation errors
-* [ ] Add observability/tracing
-* [ ] Add execution metadata aggregation
-* [ ] Introduce real inference providers
-* [ ] Introduce real model-backed Thinker
-* [ ] Improve worker lifecycle management
-* [ ] Add remote transport
-* [ ] Add persistence for plans/results
-* [ ] Add CLI/API entry points
+- [ ] Define a stronger feedback/context contract
+- [ ] Improve evaluation semantics
+- [ ] Separate execution failure from quality failure more explicitly
+- [ ] Add richer evaluator implementations
+- [ ] Improve plan validation errors
+- [ ] Add observability/tracing
+- [ ] Add execution metadata aggregation
+- [ ] Introduce real inference providers
+- [ ] Introduce real model-backed Thinker
+- [ ] Improve worker lifecycle management
+- [ ] Add remote transport
+- [ ] Add persistence for plans/results
+- [ ] Add CLI/API entry points
 
 ## Longer Term
 

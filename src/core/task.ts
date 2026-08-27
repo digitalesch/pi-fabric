@@ -1,4 +1,3 @@
-import type { Context } from './context.js';
 import type { ExecutionRequirements } from './execution-requirements.js';
 
 export interface Task {

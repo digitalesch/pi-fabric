@@ -7,7 +7,13 @@ export interface Evaluation {
 
   issues: string[];
 
-  feedback?: Record<string, unknown>;
+  feedback?: {
+    missing?: string[];
+
+    suggestions?: string[];
+
+    confidence?: number;
+  };
 }
 
 export interface Evaluator {

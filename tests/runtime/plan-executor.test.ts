@@ -10,23 +10,96 @@ import { PlanExecutor } from '../../src/runtime/plan-executor.js';
 import { NodeRegistry } from '../../src/runtime/registry.js';
 import { NodeSelector } from '../../src/runtime/node-selector.js';
 import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js';
+import { Planner } from '../../src/runtime/planner.js';
 
-class RecordingNode implements ModelNode {
+class ConcurrencyNode implements ModelNode {
+  public active = 0;
+  public maxActive = 0;
   public receivedTasks: Task[] = [];
 
-  constructor(public readonly id: string) {}
+  constructor(
+    public readonly id: string,
+    private readonly delayMs = 10,
+  ) {}
 
   capabilities(): Capability[] {
-    return [];
+    return [
+      {
+        aspect: 'extract_requirements',
+        quality: 0.8,
+        contextWindow: 8192,
+        local: true,
+      },
+    ];
   }
 
   async execute(task: Task): Promise<Result> {
     this.receivedTasks.push(task);
 
+    this.active++;
+    this.maxActive = Math.max(this.maxActive, this.active);
+
+    await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+
+    this.active--;
+
     return {
       taskId: task.id,
       success: true,
-      output: task.id,
+      output: {
+        executedBy: this.id,
+      },
+      metadata: {
+        nodeId: this.id,
+      },
+    };
+  }
+}
+
+class RecordingNode implements ModelNode {
+  public receivedTasks: Task[] = [];
+
+  constructor(
+    public readonly id: string,
+    private readonly shouldFail = false,
+  ) {}
+
+  capabilities(): Capability[] {
+    return [
+      {
+        aspect: 'extract_requirements',
+        quality: 0.8,
+        contextWindow: 8192,
+        local: true,
+      },
+    ];
+  }
+
+  async execute(task: Task): Promise<Result> {
+    this.receivedTasks.push(task);
+
+    if (this.shouldFail) {
+      return {
+        taskId: task.id,
+        success: false,
+        output: null,
+        metadata: {
+          nodeId: this.id,
+        },
+        error: {
+          code: 'TEST_FAILURE',
+          message: 'Task failed',
+        },
+      };
+    }
+
+    return {
+      taskId: task.id,
+      success: true,
+      output: {
+        requirements: ['test requirement'],
+        executedBy: this.id,
+      },
       metadata: {
         nodeId: this.id,
       },
@@ -341,11 +414,269 @@ describe('PlanExecutor', () => {
       'task-1': {
         taskId: 'task-1',
         success: true,
-        output: 'task-1',
+        output: {
+          executedBy: 'upstream',
+          requirements: ['test requirement'],
+        },
         metadata: {
           nodeId: 'upstream',
         },
       },
     });
+  });
+
+  it('passes dependency results through task context', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const node = new RecordingNode('recording-node');
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(new QualityFirstPolicy());
+
+    const taskExecutor = new Executor(nodeRegistry, selector);
+
+    const planExecutor = new PlanExecutor(taskExecutor);
+
+    const planner = new Planner(nodeRegistry, selector);
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: {
+            id: 'task-1',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: [],
+          },
+          nodeId: 'recording-node',
+        },
+        {
+          task: {
+            id: 'task-2',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: ['task-1'],
+          },
+          nodeId: 'recording-node',
+        },
+      ],
+    };
+
+    const results = await planExecutor.execute(plan);
+
+    expect(results).toHaveLength(2);
+
+    expect(node.receivedTasks[1].context.facts.dependencies).toEqual({
+      'task-1': results[0],
+    });
+  });
+
+  it('fails dependent tasks when a dependency fails', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const failingNode = new RecordingNode('failing-node', true);
+
+    const dependentNode = new RecordingNode('dependent-node');
+
+    nodeRegistry.register(failingNode);
+    nodeRegistry.register(dependentNode);
+
+    const selector = new NodeSelector(new QualityFirstPolicy());
+
+    const taskExecutor = new Executor(nodeRegistry, selector);
+
+    const planExecutor = new PlanExecutor(taskExecutor);
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: {
+            id: 'task-1',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: [],
+          },
+          nodeId: 'failing-node',
+        },
+        {
+          task: {
+            id: 'task-2',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: ['task-1'],
+          },
+          nodeId: 'dependent-node',
+        },
+      ],
+    };
+
+    const results = await planExecutor.execute(plan);
+
+    expect(results).toHaveLength(2);
+
+    expect(results[0]).toMatchObject({
+      taskId: 'task-1',
+      success: false,
+      error: {
+        code: 'TEST_FAILURE',
+        message: 'Task failed',
+      },
+    });
+
+    expect(results[1]).toMatchObject({
+      taskId: 'task-2',
+      success: false,
+      error: {
+        code: 'DEPENDENCY_FAILED',
+        message: 'A dependency failed',
+      },
+    });
+
+    expect(failingNode.receivedTasks).toHaveLength(1);
+
+    expect(dependentNode.receivedTasks).toHaveLength(0);
+  });
+
+  it('limits concurrent task execution', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const node = new ConcurrencyNode('concurrency-node', 20);
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(new QualityFirstPolicy());
+
+    const taskExecutor = new Executor(nodeRegistry, selector);
+
+    const planExecutor = new PlanExecutor(taskExecutor, 2);
+
+    const createTask = (id: string): Task => ({
+      id,
+      aspect: 'extract_requirements',
+      input: {},
+      context: {
+        facts: {},
+        constraints: [],
+        assumptions: [],
+        references: [],
+      },
+      outputSchema: {},
+      dependencies: [],
+    });
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: createTask('task-1'),
+          nodeId: 'concurrency-node',
+        },
+        {
+          task: createTask('task-2'),
+          nodeId: 'concurrency-node',
+        },
+        {
+          task: createTask('task-3'),
+          nodeId: 'concurrency-node',
+        },
+        {
+          task: createTask('task-4'),
+          nodeId: 'concurrency-node',
+        },
+      ],
+    };
+
+    const results = await planExecutor.execute(plan);
+
+    expect(results).toHaveLength(4);
+
+    expect(node.receivedTasks).toHaveLength(4);
+
+    expect(node.maxActive).toBe(2);
+  });
+
+  it('rejects plans with cyclic dependencies', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const node = new RecordingNode('recording-node');
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(new QualityFirstPolicy());
+
+    const executor = new Executor(nodeRegistry, selector);
+
+    const planExecutor = new PlanExecutor(executor);
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: {
+            id: 'task-1',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: ['task-2'],
+          },
+          nodeId: 'recording-node',
+        },
+        {
+          task: {
+            id: 'task-2',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: ['task-1'],
+          },
+          nodeId: 'recording-node',
+        },
+      ],
+    };
+
+    await expect(planExecutor.execute(plan)).rejects.toThrow(
+      'Unable to resolve task dependencies',
+    );
+
+    expect(node.receivedTasks).toHaveLength(0);
   });
 });
