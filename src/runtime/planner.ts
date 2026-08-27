@@ -14,7 +14,11 @@ export class Planner {
       tasks: plan.tasks.map((task) => {
         const nodes = this.nodeRegistry.findFor(task.aspect);
 
-        const node = this.selector.select(nodes, task.aspect);
+        const node = this.selector.select(
+          nodes,
+          task.aspect,
+          task.requirements,
+        );
 
         return {
           task,

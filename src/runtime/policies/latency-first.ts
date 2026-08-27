@@ -3,7 +3,7 @@ import type { ModelNode } from '../../nodes/node.js';
 import { NodeEligibility } from '../node-eligibility.js';
 import type { SchedulingPolicy } from '../scheduling-policy.js';
 
-export class QualityFirstPolicy implements SchedulingPolicy {
+export class LatencyFirstPolicy implements SchedulingPolicy {
   constructor(private readonly eligibility = new NodeEligibility()) {}
 
   select(
@@ -36,7 +36,15 @@ export class QualityFirstPolicy implements SchedulingPolicy {
         return best;
       }
 
-      return currentCapability.quality > bestCapability.quality
+      if (bestCapability.latencyMs === undefined) {
+        return current;
+      }
+
+      if (currentCapability.latencyMs === undefined) {
+        return best;
+      }
+
+      return currentCapability.latencyMs < bestCapability.latencyMs
         ? current
         : best;
     });

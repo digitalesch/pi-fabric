@@ -5,12 +5,10 @@ import { createFabric } from '../../src/create-fabric.js';
 import type { Evaluator, Evaluation } from '../../src/evaluation/evaluator.js';
 import type { EvaluationDecision } from '../../src/core/evaluation-decision.js';
 import type { Result } from '../../src/core/result.js';
-import type { Task } from '../../src/core/task.js';
 import type { Thinker } from '../../src/thinker/thinker.js';
 import type { Objective } from '../../src/core/objective.js';
 import type { Plan } from '../../src/core/plan.js';
 import type { ModelNode } from '../../src/nodes/node.js';
-import type { Capability } from '../../src/core/capability.js';
 
 import { Fabric } from '../../src/runtime/fabric.js';
 import { AspectRegistry } from '../../src/runtime/aspect-registry.js';
@@ -23,11 +21,12 @@ import { NodeSelector } from '../../src/runtime/node-selector.js';
 import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js';
 
 import { extractRequirements } from '../../src/core/aspects/extract-requirements.js';
+import { RecordingNode } from '../helpers/recording-node.js';
 
 function createFabricForTest(
   thinker: Thinker,
   evaluator: Evaluator,
-  node: ModelNode,
+  nodes: ModelNode[],
 ): Fabric {
   const aspectRegistry = new AspectRegistry();
 
@@ -35,7 +34,9 @@ function createFabricForTest(
 
   const nodeRegistry = new NodeRegistry();
 
-  nodeRegistry.register(node);
+  for (const node of nodes) {
+    nodeRegistry.register(node);
+  }
 
   const selector = new NodeSelector(new QualityFirstPolicy());
 
@@ -344,40 +345,250 @@ class ReplanningThinker implements Thinker {
   }
 }
 
-class RecordingNode implements ModelNode {
-  public receivedTasks: Task[] = [];
+// class RecordingNode implements ModelNode {
+//   public receivedTasks: Task[] = [];
 
-  constructor(public readonly id: string) {}
+//   constructor(
+//     public readonly id: string,
+//     private readonly capability: Capability = {
+//       aspect: 'extract_requirements',
+//       quality: 0.8,
+//       contextWindow: 8192,
+//       local: true,
+//     },
+//   ) {}
 
-  capabilities(): Capability[] {
-    return [
-      {
-        aspect: 'extract_requirements',
-        quality: 0.8,
-        contextWindow: 8192,
-        local: true,
-      },
-    ];
-  }
+//   capabilities(): Capability[] {
+//     return [this.capability];
+//   }
 
-  async execute(task: Task): Promise<Result> {
-    this.receivedTasks.push(task);
+//   async execute(task: Task): Promise<Result> {
+//     this.receivedTasks.push(task);
 
-    return {
-      taskId: task.id,
-      success: true,
-      output: {
-        requirements: ['test requirement'],
-        executedBy: this.id,
-      },
-      metadata: {
-        nodeId: this.id,
-      },
-    };
-  }
-}
+//     return {
+//       taskId: task.id,
+//       success: true,
+//       output: {
+//         requirements: ['test requirement'],
+//         executedBy: this.id,
+//       },
+//       metadata: {
+//         nodeId: this.id,
+//       },
+//     };
+//   }
+// }
 
 describe('Fabric', () => {
+  it('replans with stronger requirements after evaluation failure', async () => {
+    const lowQualityNode = new RecordingNode('low-quality', {
+      aspect: 'extract_requirements',
+      quality: 0.8,
+      contextWindow: 8192,
+      latencyMs: 50,
+      local: true,
+    });
+
+    const highQualityNode = new RecordingNode('high-quality', {
+      aspect: 'extract_requirements',
+      quality: 0.95,
+      contextWindow: 16384,
+      latencyMs: 100,
+      local: true,
+    });
+
+    let replanCount = 0;
+    let evaluationCount = 0;
+
+    const thinker: Thinker = {
+      async plan(objective) {
+        return {
+          tasks: [
+            {
+              id: 'task-1',
+              aspect: 'extract_requirements',
+              input: {
+                objective: objective.description,
+              },
+              context: {
+                facts: {},
+                constraints: [],
+                assumptions: [],
+                references: [],
+              },
+              outputSchema: {
+                requirements: 'string[]',
+              },
+              dependencies: [],
+              requirements: {
+                maximumLatencyMs: 50,
+              },
+            },
+          ],
+        };
+      },
+
+      async evaluate(_objective, _results, _evaluations) {
+        return {
+          accepted: evaluationCount >= 2,
+          issues:
+            evaluationCount >= 2 ? [] : ['Output quality was insufficient'],
+        };
+      },
+
+      async replan(_objective, previousPlan, _results, _evaluations) {
+        replanCount++;
+
+        return {
+          ...previousPlan,
+          tasks: previousPlan.tasks.map((task) => ({
+            ...task,
+            id: `replanned-${task.id}`,
+            requirements: {
+              minimumQuality: 0.95,
+              minimumContextWindow: 8192,
+              localOnly: true,
+            },
+          })),
+        };
+      },
+
+      async synthesize(_objective, results) {
+        return JSON.stringify(results);
+      },
+    };
+
+    const evaluator: Evaluator = {
+      async evaluate(result: Result) {
+        evaluationCount++;
+
+        if (evaluationCount === 1) {
+          return {
+            taskId: result.taskId,
+            accepted: false,
+            issues: ['Output quality was insufficient'],
+          };
+        }
+
+        return {
+          taskId: result.taskId,
+          accepted: true,
+          issues: [],
+        };
+      },
+    };
+
+    const fabric = createFabricForTest(thinker, evaluator, [
+      lowQualityNode,
+      highQualityNode,
+    ]);
+
+    const result = await fabric.run({
+      description: 'test objective',
+    });
+
+    expect(result).toBeDefined();
+
+    expect(replanCount).toBe(1);
+
+    expect(lowQualityNode.receivedTasks).toHaveLength(1);
+    expect(highQualityNode.receivedTasks).toHaveLength(1);
+
+    expect(lowQualityNode.receivedTasks[0].requirements?.maximumLatencyMs).toBe(
+      50,
+    );
+
+    expect(highQualityNode.receivedTasks[0].requirements?.minimumQuality).toBe(
+      0.95,
+    );
+
+    expect(
+      highQualityNode.receivedTasks[0].requirements?.minimumContextWindow,
+    ).toBe(8192);
+  });
+
+  it('uses task requirements when selecting an execution node', async () => {
+    const smallNode = new RecordingNode('small-node', {
+      aspect: 'extract_requirements',
+      quality: 0.7,
+      contextWindow: 4096,
+      latencyMs: 50,
+      local: true,
+    });
+
+    const largeNode = new RecordingNode('large-node', {
+      aspect: 'extract_requirements',
+      quality: 0.95,
+      contextWindow: 16384,
+      latencyMs: 100,
+      local: true,
+    });
+
+    const thinker: Thinker = {
+      async plan(objective) {
+        return {
+          tasks: [
+            {
+              id: 'extract-requirements',
+              aspect: 'extract_requirements',
+              input: {
+                objective: objective.description,
+              },
+              context: {
+                facts: {},
+                constraints: [],
+                assumptions: [],
+                references: [],
+              },
+              outputSchema: {
+                requirements: 'string[]',
+              },
+              dependencies: [],
+              requirements: {
+                minimumQuality: 0.9,
+                minimumContextWindow: 8192,
+                localOnly: true,
+              },
+            },
+          ],
+        };
+      },
+
+      async evaluate() {
+        return {
+          accepted: true,
+          issues: [],
+        };
+      },
+
+      async replan(_objective, previousPlan) {
+        return previousPlan;
+      },
+
+      async synthesize() {
+        return 'done';
+      },
+    };
+
+    const evaluator: Evaluator = {
+      async evaluate(result: Result) {
+        return { taskId: result.taskId, accepted: true, issues: [] };
+      },
+    };
+
+    const fabric = createFabricForTest(thinker, evaluator, [
+      smallNode,
+      largeNode,
+    ]);
+
+    await fabric.run({
+      description: 'test objective',
+    });
+
+    expect(smallNode.receivedTasks).toHaveLength(0);
+    expect(largeNode.receivedTasks).toHaveLength(1);
+  });
+
   it('replans when one task fails evaluation', async () => {
     const thinker = new MultiTaskThinker();
 
@@ -420,7 +631,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('test-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     const result = await fabric.run({
       description: 'test objective',
@@ -483,7 +694,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('test-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     await expect(
       fabric.run({
@@ -534,7 +745,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('recording-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     const result = await fabric.run({
       description: 'test objective',
@@ -596,7 +807,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('recording-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     const result = await fabric.run({
       description: 'test objective',
@@ -639,7 +850,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('test-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     await fabric.run({
       description: 'test objective',
@@ -722,7 +933,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('recording-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     const result = await fabric.run({
       description: 'test objective',
@@ -821,7 +1032,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('recording-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     await expect(
       fabric.run({
@@ -849,7 +1060,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('recording-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     await expect(
       fabric.run({
@@ -881,7 +1092,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('recording-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     await expect(
       fabric.run({
@@ -924,7 +1135,7 @@ describe('Fabric', () => {
 
     const node = new RecordingNode('recording-node');
 
-    const fabric = createFabricForTest(thinker, evaluator, node);
+    const fabric = createFabricForTest(thinker, evaluator, [node]);
 
     await expect(
       fabric.run({
