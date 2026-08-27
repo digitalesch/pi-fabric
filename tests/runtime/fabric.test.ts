@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createFabric } from '../../src/create-fabric.js';
 
 import type { Evaluator, Evaluation } from '../../src/evaluation/evaluator.js';
-
+import type { EvaluationDecision } from '../../src/core/evaluation-decision.js';
 import type { Result } from '../../src/core/result.js';
 import type { Task } from '../../src/core/task.js';
 import type { Thinker } from '../../src/thinker/thinker.js';
@@ -100,9 +100,12 @@ class InvalidDependencyThinker implements Thinker {
   async evaluate(
     _objective: Objective,
     _results: Result[],
-    _evaluations: Evaluation[],
-  ): Promise<unknown> {
-    return undefined;
+    evaluations: Evaluation[],
+  ): Promise<EvaluationDecision> {
+    return {
+      accepted: evaluations.every((evaluation) => evaluation.accepted),
+      issues: evaluations.flatMap((evaluation) => evaluation.issues),
+    };
   }
 
   async replan(
@@ -188,9 +191,12 @@ class MultiTaskThinker implements Thinker {
   async evaluate(
     _objective: Objective,
     _results: Result[],
-    _evaluations: Evaluation[],
-  ): Promise<unknown> {
-    return undefined;
+    evaluations: Evaluation[],
+  ): Promise<EvaluationDecision> {
+    return {
+      accepted: evaluations.every((evaluation) => evaluation.accepted),
+      issues: evaluations.flatMap((evaluation) => evaluation.issues),
+    };
   }
 
   async replan(
@@ -251,11 +257,8 @@ class ControllableEvaluator implements Evaluator {
 
 class ReplanningThinker implements Thinker {
   public planCalls = 0;
-
   public replanCalls = 0;
-
   public synthesizeCalls = 0;
-
   public replanningEvaluations: Evaluation[][] = [];
 
   async plan(_objective: Objective): Promise<Plan> {
@@ -284,7 +287,7 @@ class ReplanningThinker implements Thinker {
     _objective: Objective,
     _results: Result[],
     evaluations: Evaluation[],
-  ): Promise<unknown> {
+  ): Promise<EvaluationDecision> {
     return {
       accepted: evaluations.every((evaluation) => evaluation.accepted),
       issues: evaluations.flatMap((evaluation) => evaluation.issues),
@@ -301,19 +304,36 @@ class ReplanningThinker implements Thinker {
 
     this.replanningEvaluations.push(evaluations);
 
+    const idMap = new Map(
+      previousPlan.tasks.map((task) => [task.id, `replanned-${task.id}`]),
+    );
+
     return {
       ...previousPlan,
-      tasks: previousPlan.tasks.map((task, index) => ({
-        ...task,
-        id: `replanned-${task.id}`,
-        context: {
-          ...task.context,
-          facts: {
-            ...task.context.facts,
-            previousEvaluation: evaluations[index],
+      tasks: previousPlan.tasks.map((task, index) => {
+        const evaluation = evaluations[index];
+
+        return {
+          ...task,
+          id: idMap.get(task.id)!,
+          dependencies: task.dependencies.map(
+            (dependency) => idMap.get(dependency) ?? dependency,
+          ),
+          context: {
+            ...task.context,
+            facts: {
+              ...task.context.facts,
+              previousEvaluation: evaluation,
+            },
+            constraints: [
+              ...task.context.constraints,
+              ...(evaluation.feedback?.missing ?? []).map(
+                (missing) => `Ensure the output includes: ${missing}`,
+              ),
+            ],
           },
-        },
-      })),
+        };
+      }),
     };
   }
 
@@ -842,5 +862,84 @@ describe('Fabric', () => {
     expect(node.receivedTasks).toHaveLength(0);
 
     expect(evaluator.calls).toBe(0);
+  });
+
+  it('propagates evaluation failures', async () => {
+    class FailingEvaluator implements Evaluator {
+      public calls = 0;
+
+      async evaluate(_result: Result): Promise<Evaluation> {
+        this.calls++;
+
+        throw new Error('evaluation failed');
+      }
+    }
+
+    const thinker = new ReplanningThinker();
+
+    const evaluator = new FailingEvaluator();
+
+    const node = new RecordingNode('recording-node');
+
+    const fabric = createFabricForTest(thinker, evaluator, node);
+
+    await expect(
+      fabric.run({
+        description: 'test objective',
+      }),
+    ).rejects.toThrow('evaluation failed');
+
+    expect(thinker.planCalls).toBe(1);
+
+    expect(thinker.replanCalls).toBe(0);
+
+    expect(thinker.synthesizeCalls).toBe(0);
+
+    expect(evaluator.calls).toBe(1);
+
+    expect(node.receivedTasks).toHaveLength(1);
+  });
+
+  it('propagates synthesis failures', async () => {
+    class FailingSynthesisThinker extends ReplanningThinker {
+      override async synthesize(
+        _objective: Objective,
+        _results: Result[],
+      ): Promise<string> {
+        this.synthesizeCalls++;
+
+        throw new Error('synthesis failed');
+      }
+    }
+
+    const thinker = new FailingSynthesisThinker();
+
+    const evaluator = new ControllableEvaluator([
+      {
+        taskId: 'task-1',
+        accepted: true,
+        issues: [],
+      },
+    ]);
+
+    const node = new RecordingNode('recording-node');
+
+    const fabric = createFabricForTest(thinker, evaluator, node);
+
+    await expect(
+      fabric.run({
+        description: 'test objective',
+      }),
+    ).rejects.toThrow('synthesis failed');
+
+    expect(thinker.planCalls).toBe(1);
+
+    expect(thinker.replanCalls).toBe(0);
+
+    expect(thinker.synthesizeCalls).toBe(1);
+
+    expect(evaluator.calls).toBe(1);
+
+    expect(node.receivedTasks).toHaveLength(1);
   });
 });

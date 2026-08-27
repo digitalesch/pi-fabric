@@ -39,7 +39,11 @@ export class Fabric {
         results.map((result) => this.evaluator.evaluate(result)),
       );
 
-      await this.thinker.evaluate(objective, results, evaluations);
+      const decision = await this.thinker.evaluate(
+        objective,
+        results,
+        evaluations,
+      );
 
       const accepted = evaluations.every((evaluation) => evaluation.accepted);
 

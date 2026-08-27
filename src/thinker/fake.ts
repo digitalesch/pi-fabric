@@ -8,6 +8,8 @@ import type { Evaluation } from '../evaluation/evaluator.js';
 
 import type { Thinker } from './thinker.js';
 
+import { EvaluationDecision } from '../core/evaluation-decision.js';
+
 export class FakeThinker implements Thinker {
   async plan(objective: Objective): Promise<Plan> {
     return {
@@ -43,10 +45,13 @@ export class FakeThinker implements Thinker {
 
   async evaluate(
     _objective: Objective,
-    results: Result[],
-    _evaluations: Evaluation[],
-  ): Promise<unknown> {
-    return results;
+    _results: Result[],
+    evaluations: Evaluation[],
+  ): Promise<EvaluationDecision> {
+    return {
+      accepted: evaluations.every((evaluation) => evaluation.accepted),
+      issues: evaluations.flatMap((evaluation) => evaluation.issues),
+    };
   }
 
   async replan(
@@ -55,29 +60,29 @@ export class FakeThinker implements Thinker {
     _results: Result[],
     evaluations: Evaluation[],
   ): Promise<Plan> {
+    const idMap = new Map(
+      previousPlan.tasks.map((task) => [task.id, `replanned-${task.id}`]),
+    );
+
     return {
       ...previousPlan,
-
       tasks: previousPlan.tasks.map((task, index) => {
         const evaluation = evaluations[index];
 
         return {
           ...task,
-
-          id: `replanned-${task.id}`,
-
+          id: idMap.get(task.id)!,
+          dependencies: task.dependencies.map(
+            (dependency) => idMap.get(dependency) ?? dependency,
+          ),
           context: {
             ...task.context,
-
             facts: {
               ...task.context.facts,
-
               previousEvaluation: evaluation,
             },
-
             constraints: [
               ...task.context.constraints,
-
               ...(evaluation.feedback?.missing ?? []).map(
                 (missing) => `Ensure the output includes: ${missing}`,
               ),
