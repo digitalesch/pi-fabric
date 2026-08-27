@@ -1,216 +1,109 @@
+````md
 # Pi Fabric
 
-Pi Fabric is an experimental orchestration framework for building **model-driven execution fabrics**.
+Pi Fabric is an execution fabric for orchestrating heterogeneous model nodes.
 
-The core idea is to separate:
+The core idea is to separate **planning**, **scheduling**, **execution**, and **evaluation** so that different models can collaborate on complex objectives without every model having to perform the entire reasoning process.
 
-- **Thinking** — deciding what should happen
-- **Planning** — turning intent into executable work
-- **Scheduling** — selecting capable nodes
-- **Execution** — running tasks
-- **Evaluation** — determining whether results are acceptable
-- **Replanning** — adapting when execution is not good enough
-- **Synthesis** — producing the final result
+## Architecture
 
-The long-term goal is a system where a larger reasoning model can act as a **master thinker/orchestrator**, delegating specialized work to smaller local or remote models.
-
----
-
-## Current Architecture
+Pi Fabric currently follows this execution flow:
 
 ```text
-                         ┌─────────────┐
-                         │  Objective  │
-                         └──────┬──────┘
-                                │
-                                ▼
-                         ┌─────────────┐
-                         │   Thinker   │
-                         │  plan()     │
-                         └──────┬──────┘
-                                │
-                              Plan
-                                │
-                                ▼
-                       ┌─────────────────┐
-                       │ Plan Validator  │
-                       └────────┬────────┘
-                                │
-                                ▼
-                         ┌─────────────┐
-                         │   Planner   │
-                         └──────┬──────┘
-                                │
-                         PhysicalPlan
-                                │
-                                ▼
-                       ┌─────────────────┐
-                       │  PlanExecutor   │
-                       └────────┬────────┘
-                                │
-                                ▼
-                         ┌─────────────┐
-                         │   Executor  │
-                         └──────┬──────┘
-                                │
-                         selected Node
-                                │
-                                ▼
-                         ┌─────────────┐
-                         │    Node     │
-                         └──────┬──────┘
-                                │
-                              Result
-                                │
-                                ▼
-                         ┌─────────────┐
-                         │  Evaluator  │
-                         └──────┬──────┘
-                                │
-                           Evaluation
-                                │
-                     ┌──────────┴──────────┐
-                     │                     │
-                 accepted              rejected
-                     │                     │
-                     ▼                     ▼
-                Synthesize             Replan
-                                           │
-                                           ▼
-                                      New Plan
-                                           │
-                                           └───────► execution
-```
+Objective
+   │
+   ▼
+ Thinker
+   │
+   │ Plan
+   ▼
+ Planner
+   │
+   ├── AspectRegistry
+   ├── NodeSelector
+   │      └── SchedulingPolicy
+   │
+   ▼
+PhysicalPlan
+   │
+   ▼
+TaskGraph
+   │
+   ▼
+PlanExecutor
+   │
+   ▼
+ Executor
+   │
+   ▼
+ ModelNode
+   │
+   ▼
+ Result
+   │
+   ▼
+ Evaluator
+   │
+   ▼
+ Thinker
+   │
+   ├── accept → Synthesize
+   │
+   └── reject → Replan
+````
 
-The important property is that **Fabric itself does not make domain decisions**. It coordinates the control loop.
+## Core Concepts
 
----
+### Thinker
 
-## Project Structure
+The `Thinker` is responsible for high-level reasoning around an objective.
 
-```text
-src/
-├── core/
-│   ├── aspect.ts
-│   ├── capability.ts
-│   ├── context.ts
-│   ├── execution-requirements.ts
-│   ├── node.ts
-│   ├── objective.ts
-│   ├── physical-plan.ts
-│   ├── physical-task.ts
-│   ├── plan.ts
-│   └── result.ts
-│
-├── evaluation/
-│   ├── evaluator.ts
-│   └── basic.ts
-│
-├── inference/
-│   ├── adapter.ts
-│   ├── fake.ts
-│   ├── provider.ts
-│   ├── request.ts
-│   └── response.ts
-│
-├── nodes/
-│   ├── inference-node.ts
-│   ├── local.ts
-│   └── node.ts
-│
-├── runtime/
-│   ├── aspect-registry.ts
-│   ├── executor.ts
-│   ├── fabric.ts
-│   ├── node-selector.ts
-│   ├── plan-executor.ts
-│   ├── plan-validator.ts
-│   ├── planner.ts
-│   ├── registry.ts
-│   ├── retry-policy.ts
-│   ├── scheduling-policy.ts
-│   └── policies/
-│       └── quality-first.ts
-│
-├── thinker/
-│   ├── thinker.ts
-│   └── fake.ts
-│
-├── transport/
-│   ├── child-process.ts
-│   ├── in-process.ts
-│   ├── message.ts
-│   └── transport.ts
-│
-├── worker/
-│   ├── main.ts
-│   └── worker.ts
-│
-└── create-fabric.ts
-```
+It can:
 
----
-
-# Core Concepts
-
-## Objective
-
-An objective represents what the user wants accomplished.
+* create an initial plan
+* evaluate execution results
+* replan after failed evaluation
+* synthesize the final result
 
 ```ts
-export interface Objective {
-  description: string;
+interface Thinker {
+  plan(objective: Objective): Promise<Plan>;
+
+  evaluate(
+    objective: Objective,
+    results: Result[],
+    evaluations: Evaluation[],
+  ): Promise<EvaluationDecision>;
+
+  replan(
+    objective: Objective,
+    previousPlan: Plan,
+    results: Result[],
+    evaluations: Evaluation[],
+  ): Promise<Plan>;
+
+  synthesize(
+    objective: Objective,
+    results: Result[],
+  ): Promise<string>;
 }
 ```
 
-The objective is intentionally high-level.
+### Task
 
-The Thinker is responsible for turning it into work.
+A task represents a logical unit of work.
 
----
+Tasks describe:
 
-## Aspect
-
-An aspect describes a type of work that can be performed.
-
-```ts
-export interface Aspect {
-  name: string;
-  description: string;
-  inputSchema: unknown;
-  outputSchema: unknown;
-}
-```
-
-Example:
-
-```text
-extract_requirements
-```
-
-Aspects allow the system to reason about **what kind of capability is needed**, independently from the node that performs it.
-
----
-
-## Capability
-
-Nodes advertise the aspects they can perform along with execution characteristics such as:
-
-- quality
-- context window
-- latency
-- locality
-
-This allows the scheduler to select an appropriate node.
-
----
-
-## Task
-
-A task is the atomic unit of logical work.
+* what aspect they address
+* their input
+* contextual information
+* expected output
+* dependencies
+* execution requirements
 
 ```ts
-export interface Task {
+interface Task {
   id: string;
   aspect: string;
   input: unknown;
@@ -230,741 +123,302 @@ export interface Task {
 }
 ```
 
-Tasks can depend on other tasks.
+### TaskGraph
 
-This enables DAG-style execution.
+`TaskGraph` provides the dependency graph abstraction used by the execution layer.
 
----
+It is responsible for:
 
-## Plan
+* validating task IDs
+* validating dependencies
+* detecting duplicate dependencies
+* detecting missing dependencies
+* detecting dependency cycles
+* identifying root tasks
+* finding ready tasks
+* finding direct dependents
+* producing topological ordering
 
-A logical plan is simply a collection of tasks:
+This keeps DAG semantics out of the executor itself.
+
+```text
+       A
+      / \
+     B   C
+      \ /
+       D
+```
+
+For this graph:
 
 ```ts
-export interface Plan {
-  tasks: Task[];
+graph.dependencies('D');
+// ['B', 'C']
+
+graph.dependents('A');
+// ['B', 'C']
+
+graph.ready(completed);
+// tasks whose dependencies are satisfied
+```
+
+### ModelNode
+
+A `ModelNode` represents an execution resource.
+
+Nodes advertise their capabilities so the fabric can select an appropriate node for each task.
+
+A capability describes:
+
+```ts
+interface Capability {
+  aspect: string;
+  quality: number;
+  contextWindow: number;
+  latencyMs?: number;
+  local: boolean;
 }
 ```
 
-The Thinker produces this.
+This allows the same task to potentially be executed by different models.
 
----
+### Node Selection
 
-## Physical Plan
+`NodeSelector` delegates node selection to a scheduling policy.
 
-The Planner converts logical tasks into executable tasks by selecting a concrete node.
+The current policy is:
 
-Conceptually:
+```text
+QualityFirstPolicy
+```
+
+It filters candidates according to execution requirements such as:
+
+* minimum quality
+* minimum context window
+* local-only execution
+* maximum latency
+
+and then selects the highest-quality capable node.
+
+This separation allows additional scheduling policies to be introduced without changing the planner or executor.
+
+### Planner
+
+The `Planner` converts a logical `Plan` into a `PhysicalPlan`.
+
+For every task it:
+
+1. finds nodes capable of handling the task aspect
+2. applies the configured scheduling policy
+3. assigns the selected node
+4. produces a physical task
 
 ```text
 Logical Task
-    +
-available capabilities
-    +
-scheduling policy
-    ↓
-Physical Task
-    +
-nodeId
-```
-
-This keeps **planning** separate from **execution**.
-
----
-
-# Thinker
-
-The Thinker is the highest-level orchestration component.
-
-```ts
-export interface Thinker {
-  plan(objective: Objective): Promise<Plan>;
-
-  evaluate(
-    objective: Objective,
-    results: Result[],
-    evaluations: Evaluation[],
-  ): Promise<unknown>;
-
-  synthesize(objective: Objective, results: Result[]): Promise<string>;
-
-  replan(
-    objective: Objective,
-    previousPlan: Plan,
-    results: Result[],
-    evaluations: Evaluation[],
-  ): Promise<Plan>;
-}
-```
-
-The current implementation is `FakeThinker`.
-
-Eventually this will become the frontier/master model.
-
-Its responsibilities will be:
-
-1. Understand the objective
-2. Create a plan
-3. Interpret execution results
-4. Interpret evaluations
-5. Replan when necessary
-6. Synthesize the final result
-
----
-
-# Planner
-
-The Planner resolves each task to a concrete execution node.
-
-```text
-Plan
- ↓
-find capable nodes
- ↓
-NodeSelector
- ↓
-PhysicalPlan
-```
-
-The current scheduling policy is:
-
-```text
-QualityFirstPolicy
-```
-
----
-
-# Node Registry
-
-`NodeRegistry` manages available execution nodes.
-
-Nodes advertise their capabilities.
-
-This allows multiple implementations of the same aspect:
-
-```text
-extract_requirements
-    │
-    ├── local-small-model
-    ├── local-large-model
-    └── remote-model
-```
-
-The selector can then choose between them according to requirements and scheduling policy.
-
----
-
-# Executor
-
-`Executor` performs work on an individual node.
-
-It currently handles:
-
-- node lookup
-- node execution
-- failed `Result`s
-- thrown execution errors
-- retry policies
-- fallback to other capable nodes
-
-An important distinction was established:
-
-> A node failure does not necessarily mean `node.execute()` throws.
-
-A node can return:
-
-```ts
-{
-  success: false,
-  ...
-}
-```
-
-and that is also treated as an execution failure.
-
----
-
-## Retry
-
-Retries are controlled through:
-
-```ts
-export interface RetryPolicy {
-  shouldRetry(attempt: number, error: unknown): boolean;
-}
-```
-
-The Executor applies retry policies to both:
-
-- thrown errors
-- unsuccessful `Result`s
-
-This keeps retry behavior independent from the Executor itself.
-
----
-
-## Node Fallback
-
-If a node fails, the Executor can attempt another capable node.
-
-Conceptually:
-
-```text
-Node A
-  ↓
-failure
-  ↓
-Node B
-  ↓
-success
-```
-
-This is distinct from retrying the same node.
-
----
-
-# PlanExecutor
-
-`PlanExecutor` handles execution of an entire physical plan.
-
-It currently supports:
-
-### Dependencies
-
-Tasks wait until all dependencies complete.
-
-```text
-A ──────► C
-          ▲
-B ────────┘
-```
-
-### Concurrent execution
-
-Independent tasks can execute concurrently.
-
-### Maximum concurrency
-
-A configurable concurrency limit prevents unlimited parallel execution.
-
-```ts
-new PlanExecutor(executor, 2);
-```
-
-### Dependency failure propagation
-
-If a dependency fails, dependent tasks are not executed.
-
-Instead they receive a failed result:
-
-```text
-dependency
-    ↓
- failure
-    ↓
-DEPENDENCY_FAILED
-    ↓
-dependent task skipped
-```
-
-This behavior is explicitly tested.
-
----
-
-# Plan Validation
-
-`PlanValidator` validates a physical plan before execution.
-
-This gives the system a safety boundary between:
-
-```text
-Thinker / Planner
-       ↓
-   PlanValidator
-       ↓
-   PlanExecutor
-```
-
-Invalid plans should not reach execution.
-
----
-
-# Evaluation
-
-Evaluation is intentionally separate from execution.
-
-```ts
-export interface Evaluation {
-  taskId: string;
-  accepted: boolean;
-  issues: string[];
-  feedback?: Record<string, unknown>;
-}
-```
-
-The evaluator answers:
-
-> "Was this result good enough?"
-
-This is different from:
-
-> "Did the node successfully execute?"
-
-A task can execute successfully while producing a result that should be rejected.
-
-Example:
-
-```text
-Node execution
-    ↓
-success = true
-    ↓
-Evaluator
-    ↓
-accepted = false
-```
-
-This distinction is central to the control loop.
-
----
-
-## Basic Evaluator
-
-`BasicEvaluator` currently performs simple checks:
-
-- execution failure → rejected
-- missing output → rejected
-- otherwise → accepted
-
-The evaluator architecture is designed to eventually support model-based evaluation.
-
----
-
-# Control Loop
-
-Fabric now implements an evaluation-driven execution loop.
-
-Conceptually:
-
-```text
-plan
- ↓
-validate
- ↓
-execute
- ↓
-evaluate
- ↓
-all accepted?
- ├── yes → synthesize
- │
- └── no
-      ↓
-    replan
-      ↓
-    execute again
-```
-
-The number of attempts is bounded.
-
-```ts
-new Fabric(
-  thinker,
-  planner,
-  planExecutor,
-  aspectRegistry,
-  planValidator,
-  evaluator,
-  3,
-);
-```
-
-If all attempts are exhausted:
-
-```text
-Maximum execution attempts exceeded
-```
-
-is raised.
-
-This prevents an evaluator/Thinker combination from creating an infinite replanning loop.
-
----
-
-# Evaluation Feedback
-
-The architecture now allows evaluation feedback to be passed to `Thinker.replan()`.
-
-The intended direction is:
-
-```text
-Result
-  ↓
-Evaluator
-  ↓
-Evaluation
-  ├── accepted
-  ├── issues
-  └── feedback
-       ↓
-Thinker
-       ↓
-revised Plan
-```
-
-Structured feedback is intentionally optional at this stage.
-
-A future evaluator could produce information such as:
-
-```ts
-{
-  taskId: "extract-requirements",
-  accepted: false,
-  issues: [
-    "Missing dimensional constraints",
-  ],
-  feedback: {
-    missing: [
-      "bed_width",
-      "bed_depth",
-    ],
-    confidence: 0.42,
-  },
-}
-```
-
-The Thinker can then use that information when creating the next plan.
-
----
-
-# Transport
-
-Execution is separated from inference transport.
-
-Current transports include:
-
-```text
-InProcessTransport
-ChildProcessTransport
-```
-
-This creates a path toward running workers:
-
-```text
-Fabric
-  ↓
-Node
-  ↓
-Transport
-  ↓
-Worker
-  ↓
-Inference Provider
-```
-
-The current default factory uses:
-
-```text
-FakeInferenceProvider
-        ↓
-InProcessTransport
-        ↓
-InferenceNode
-```
-
-This keeps development deterministic while the architecture remains compatible with real workers later.
-
----
-
-# Current Factory
-
-`createFabric()` provides the default application composition.
-
-It currently wires:
-
-```text
-AspectRegistry
+     │
+     ▼
 NodeRegistry
-FakeInferenceProvider
-InProcessTransport
-InferenceNode
-QualityFirstPolicy
+     │
+     ▼
 NodeSelector
-Executor
-PlanExecutor
-Planner
-PlanValidator
-BasicEvaluator
-FakeThinker
-Fabric
+     │
+     ▼
+Physical Task
 ```
 
-This acts as the composition root for the system.
+### PlanExecutor
 
----
+`PlanExecutor` executes a physical plan while respecting task dependencies.
 
-# Current Example
+It uses `TaskGraph` to determine which tasks are ready to execute.
 
-The basic integration test currently looks conceptually like:
+Independent tasks can execute concurrently, subject to `maxConcurrency`.
 
-```ts
-const fabric = createFabric();
-
-const result = await fabric.run({
-  description: 'Analyze a mechanical design and identify its requirements.',
-});
-```
-
-The current FakeThinker creates an `extract_requirements` task.
-
-The task is planned, validated, executed, evaluated, and synthesized.
-
----
-
-# Testing
-
-The project currently has a substantial test suite covering the runtime architecture.
-
-The suite covers:
-
-- node selection
-- capability matching
-- execution
-- execution failures
-- retries
-- node fallback
-- plan execution
-- dependency ordering
-- concurrent execution
-- concurrency limits
-- dependency failures
-- transport behavior
-- inference adapters
-- plan validation
-- aspect registration
-- Fabric orchestration
-- evaluation
-- replanning
-- evaluation-driven control flow
-- feedback propagation
-
-Current state:
+For example:
 
 ```text
-39 tests passing
+       A
+      / \
+     B   C
+      \ /
+       D
 ```
 
-The test suite is an important part of the architecture because many of the runtime guarantees are behavioral contracts.
+`B` and `C` can execute concurrently once `A` completes.
 
-Run:
+The executor also propagates dependency failures:
+
+```text
+A ── failed
+│
+▼
+B ── blocked
+```
+
+A blocked task is not sent to its model node.
+
+### Executor
+
+`Executor` handles execution against a specific node.
+
+It is responsible for:
+
+* looking up nodes
+* executing tasks
+* retrying failed execution when configured
+* converting thrown node errors into `Result`s
+
+Node selection is intentionally outside this class.
+
+### Evaluator
+
+The evaluator assesses individual execution results.
+
+Its output is represented by an `Evaluation` containing:
+
+* task ID
+* acceptance status
+* issues
+
+The fabric uses these evaluations to determine whether the overall execution should be accepted or replanned.
+
+### Fabric
+
+`Fabric` is the high-level orchestration boundary.
+
+A run follows this general loop:
+
+```text
+Think
+  │
+  ▼
+Plan
+  │
+  ▼
+Validate
+  │
+  ▼
+Schedule
+  │
+  ▼
+Execute
+  │
+  ▼
+Evaluate
+  │
+  ├── accepted ──► Synthesize
+  │
+  └── rejected ─► Replan
+                    │
+                    └──► Execute again
+```
+
+The fabric limits the number of execution/replanning attempts to prevent unbounded loops.
+
+## Testing
+
+The project currently has extensive coverage across the runtime components, including:
+
+* node selection
+* scheduling policies
+* planning
+* execution
+* retries
+* dependency handling
+* DAG validation
+* cycle detection
+* concurrency
+* evaluation and replanning
+* fabric orchestration
+
+The test suite currently contains **109 passing tests**.
+
+Run the suite with:
 
 ```bash
 npm test
 ```
 
----
+## Design Principles
 
-# Formatting
+Pi Fabric is being built around a few core principles.
 
-The project uses Prettier for formatting.
+### Separation of concerns
 
-Format the entire project:
+Planning, scheduling, execution, evaluation, and orchestration should remain independently replaceable.
 
-```bash
-npm run format
-```
+### Capability-driven execution
 
-Recommended scripts:
+Tasks should describe what they need rather than which model should execute them.
 
-```json
-{
-  "scripts": {
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  }
-}
-```
+### Policy-driven scheduling
 
-A `.prettierignore` should exclude:
+Node selection should be configurable through scheduling policies.
 
-```text
-node_modules
-dist
-coverage
-```
+### DAG-native execution
 
-The intended development toolchain is:
+Dependencies are first-class objects rather than incidental executor logic.
 
-```text
-Prettier     → formatting
-ESLint       → code quality
-TypeScript   → type correctness
-Vitest       → behavior
-```
+### Model heterogeneity
 
----
+Different tasks can be assigned to different models based on their capabilities and requirements.
 
-# Design Principles
+### Test-driven architecture
 
-## 1. Thinker does not execute
+New abstractions are introduced through explicit behavioral contracts and tested before being integrated into the execution path.
 
-The Thinker decides **what should happen**.
+## Current Status
 
-It does not directly execute nodes.
+Pi Fabric currently has the following major pieces in place:
 
----
+* [x] Task model
+* [x] Plan model
+* [x] Physical plan
+* [x] Model nodes
+* [x] Node registry
+* [x] Capability model
+* [x] Execution requirements
+* [x] Node selection
+* [x] Quality-first scheduling policy
+* [x] Planner
+* [x] Executor
+* [x] Retry policy
+* [x] Plan executor
+* [x] DAG dependency handling
+* [x] Task graph validation
+* [x] Cycle detection
+* [x] Concurrent execution
+* [x] Plan validation
+* [x] Evaluator
+* [x] Thinker interface
+* [x] Evaluation/replanning loop
+* [x] Fabric orchestration
+* [x] Comprehensive runtime test coverage
 
-## 2. Planner does not execute
+### Next
 
-The Planner determines **where/how tasks should execute**.
+The next architectural step is to make execution state observable and explicit.
 
-It produces a physical plan.
-
----
-
-## 3. Executor does not plan
-
-The Executor executes a task on a selected node.
-
-It handles execution concerns such as retries and failures.
-
----
-
-## 4. Evaluator does not replan
-
-The Evaluator judges results.
-
-It should not decide what the next plan should be.
-
----
-
-## 5. Fabric coordinates
-
-Fabric is the control-plane component.
-
-Its job is to coordinate:
+This will allow the fabric to represent task lifecycle state such as:
 
 ```text
-Think
- → Plan
- → Validate
- → Schedule
- → Execute
- → Evaluate
- → Replan
- → Synthesize
+pending
+   │
+   ▼
+running
+   │
+   ├──► completed
+   │
+   └──► failed
+
+pending
+   │
+   ▼
+blocked
 ```
 
-without embedding domain-specific reasoning.
+This will provide a foundation for execution observability, metrics, debugging, DAG visualization, and eventually richer scheduling behavior.
 
----
-
-# Roadmap
-
-## Near Term
-
-- [x] Core task/plan/result model
-- [x] Aspect registry
-- [x] Capability model
-- [x] Node registry
-- [x] Node selection
-- [x] Quality-first scheduling policy
-- [x] Executor
-- [x] Retry policy
-- [x] Node fallback
-- [x] Plan executor
-- [x] Dependency handling
-- [x] Concurrent execution
-- [x] Concurrency limits
-- [x] Plan validation
-- [x] Transport abstraction
-- [x] In-process transport
-- [x] Child-process transport
-- [x] Thinker abstraction
-- [x] Evaluator abstraction
-- [x] Evaluation-driven replanning
-- [x] Attempt limits
-- [x] Fabric composition root
-- [x] Test factory
-- [x] Structured evaluation feedback field
-
-## Next
-
-- [ ] Define a stronger feedback/context contract
-- [ ] Improve evaluation semantics
-- [ ] Separate execution failure from quality failure more explicitly
-- [ ] Add richer evaluator implementations
-- [ ] Improve plan validation errors
-- [ ] Add observability/tracing
-- [ ] Add execution metadata aggregation
-- [ ] Introduce real inference providers
-- [ ] Introduce real model-backed Thinker
-- [ ] Improve worker lifecycle management
-- [ ] Add remote transport
-- [ ] Add persistence for plans/results
-- [ ] Add CLI/API entry points
-
-## Longer Term
-
-The eventual architecture should support:
-
-```text
-                    Master Thinker
-                          │
-                    ┌─────┴─────┐
-                    │   Planner │
-                    └─────┬─────┘
-                          │
-                  ┌───────┼───────┐
-                  ▼       ▼       ▼
-                Worker  Worker  Worker
-                  │       │       │
-                model   model   model
-                  │       │       │
-                  └───────┼───────┘
-                          ▼
-                       Results
-                          │
-                       Evaluate
-                          │
-                    ┌─────┴─────┐
-                    │           │
-                 accept       reject
-                    │           │
-                    ▼           ▼
-                Synthesize    Replan
 ```
-
-The long-term goal is a **model orchestration fabric**, not simply a task runner.
-
----
-
-# Status
-
-Pi Fabric is currently in the **core runtime/control-loop phase**.
-
-The foundational execution architecture is working:
-
-```text
-Objective
-   ↓
-Thinker
-   ↓
-Plan
-   ↓
-Validation
-   ↓
-Physical Plan
-   ↓
-Concurrent Execution
-   ↓
-Results
-   ↓
-Evaluation
-   ↓
-Replanning
-   ↓
-Synthesis
 ```
-
-The next major milestone is moving from a mechanically correct control loop toward a **meaningful model-driven control loop**, where evaluation feedback materially improves subsequent plans.
