@@ -31,7 +31,8 @@ PhysicalPlan
 PlanExecutor
    │
    ├── TaskGraph
-   └── ExecutionState
+   ├── ExecutionState
+   └── ExecutionHistory
    │
    ▼
 Executor
@@ -51,8 +52,8 @@ Thinker
    ├── accepted ──► Synthesize
    │
    └── rejected ──► Replan
-                         │
-                         └──► execute again
+                          │
+                          └──► execute again
 ```
 
 For a deeper explanation of the execution model, see [`docs/execution-model.md`](docs/execution-model.md).
@@ -91,12 +92,12 @@ This distinction is fundamental:
 
 ```text
 Task
-  │
-  └── describes WHAT needs to happen
+ │
+ └── describes WHAT needs to happen
 
 ModelNode
-  │
-  └── describes WHERE / WITH WHAT resource it happens
+ │
+ └── describes WHERE / WITH WHAT resource it happens
 ```
 
 ### TaskGraph
@@ -229,7 +230,7 @@ The planner therefore answers:
 
 `PlanExecutor` executes a physical plan while respecting task dependencies.
 
-It uses the task graph to determine which tasks are ready to execute.
+It uses `TaskGraph` to determine which tasks are ready to execute.
 
 Independent tasks can execute concurrently, subject to `maxConcurrency`.
 
@@ -256,9 +257,11 @@ B ── blocked
 
 A blocked task is not sent to its model node.
 
+`PlanExecutor` also coordinates execution lifecycle tracking through `ExecutionState` and records execution events through `ExecutionHistory`.
+
 ### ExecutionState
 
-`ExecutionState` represents the lifecycle of tasks during execution.
+`ExecutionState` represents the **current lifecycle state** of tasks during execution.
 
 A task can move through states such as:
 
@@ -278,17 +281,79 @@ pending
 blocked
 ```
 
-This separates execution lifecycle from execution results.
-
-A `Result` answers:
-
-> What did execution produce?
-
 `ExecutionState` answers:
 
-> What happened to this task?
+> **What is the current state of this task?**
 
-This provides the foundation for observability, debugging, execution history, and future scheduling decisions.
+It tracks the live execution state independently from the `Result` produced by a task.
+
+This distinction is important:
+
+```text
+Result
+ │
+ └── What did execution produce?
+
+ExecutionState
+ │
+ └── What is the task's lifecycle state?
+```
+
+### ExecutionHistory
+
+`ExecutionHistory` records events that occur during execution.
+
+Examples include:
+
+```text
+task_started
+task_completed
+task_failed
+task_blocked
+```
+
+`ExecutionHistory` answers:
+
+> **What happened during this execution?**
+
+The distinction between state and history is intentional:
+
+```text
+ExecutionState
+     │
+     └── current execution state
+
+
+ExecutionHistory
+     │
+     └── chronological execution events
+```
+
+For example, a task may currently be:
+
+```text
+completed
+```
+
+while its history contains:
+
+```text
+task_started
+task_completed
+```
+
+This separation provides the foundation for:
+
+* execution timelines
+* debugging
+* progress reporting
+* metrics
+* tracing
+* DAG visualization
+* retry analysis
+* future scheduling decisions
+
+`ExecutionHistory` is currently a simple in-memory execution record. More advanced persistence or observability mechanisms can be introduced later without changing the core task execution model.
 
 ### Executor
 
@@ -367,14 +432,18 @@ Schedule
   ▼
 Execute
   │
+  ├──► ExecutionState
+  │
+  └──► ExecutionHistory
+  │
   ▼
 Evaluate
   │
   ├── accepted ──► Synthesize
   │
   └── rejected ──► Replan
-                       │
-                       └──► Execute again
+                         │
+                         └──► Execute again
 ```
 
 The fabric limits the number of execution/replanning attempts to prevent unbounded loops.
@@ -403,6 +472,12 @@ Dependencies are first-class objects rather than incidental executor logic.
 
 Different tasks can be assigned to different models based on their capabilities and requirements.
 
+### Explicit Execution Lifecycle
+
+Current task state and historical execution events are represented separately.
+
+This keeps runtime state useful for orchestration while keeping execution history useful for observability and analysis.
+
 ### Test-Driven Architecture
 
 New abstractions are introduced through explicit behavioral contracts and tested before being integrated into the execution path.
@@ -423,6 +498,7 @@ Coverage currently includes:
 * cycle detection
 * concurrency
 * execution state
+* execution history
 * evaluation and replanning
 * fabric orchestration
 
@@ -432,7 +508,7 @@ Run the suite with:
 npm test
 ```
 
-The project currently has **122+ passing tests**.
+The project currently has **127 passing tests**.
 
 ## Current Status
 
@@ -457,6 +533,8 @@ The major runtime pieces currently in place are:
 * [x] Concurrent execution
 * [x] Plan validation
 * [x] Execution state
+* [x] Execution history
+* [x] Execution event recording
 * [x] Evaluator
 * [x] Thinker interface
 * [x] Evaluation/replanning loop
@@ -467,16 +545,20 @@ The major runtime pieces currently in place are:
 
 The next architectural focus is **observability and execution introspection**.
 
-With explicit execution state and a first-class task graph, Pi Fabric now has the foundation for:
+With explicit task graphs, execution state, and execution history, Pi Fabric now has the foundation for:
 
-* execution events
+* execution timelines
 * progress reporting
-* execution history
-* metrics
-* tracing
-* debugging
+* task duration metrics
+* critical-path analysis
+* execution tracing
+* debugging tools
 * DAG visualization
 * retry history
 * richer scheduling decisions
 
-The goal is to make the fabric not only capable of executing a plan, but also capable of explaining **what it is doing, why it is doing it, and what happened at each stage**.
+The goal is to make the fabric not only capable of executing a plan, but also capable of explaining:
+
+> **what it is doing, why it is doing it, and what happened at each stage.**
+
+The architecture should continue to evolve from this foundation without coupling observability concerns to the core execution mechanics.

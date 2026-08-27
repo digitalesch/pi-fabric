@@ -6,17 +6,12 @@ import type { Result } from '../core/result.js';
 import type { Task } from '../core/task.js';
 
 export class ExecutionState {
-  private readonly executions = new Map<
-    string,
-    TaskExecution
-  >();
+  private readonly executions = new Map<string, TaskExecution>();
 
   initialize(tasks: Task[]): void {
     for (const task of tasks) {
       if (this.executions.has(task.id)) {
-        throw new Error(
-          `Duplicate task ID: ${task.id}`,
-        );
+        throw new Error(`Duplicate task ID: ${task.id}`);
       }
 
       this.executions.set(task.id, {
@@ -29,39 +24,24 @@ export class ExecutionState {
   start(taskId: string): void {
     const execution = this.get(taskId);
 
-    this.transition(
-      execution,
-      'running',
-    );
+    this.transition(execution, 'running');
 
     execution.startedAt = Date.now();
   }
 
-  complete(
-    taskId: string,
-    result: Result,
-  ): void {
+  complete(taskId: string, result: Result): void {
     const execution = this.get(taskId);
 
-    this.transition(
-      execution,
-      'completed',
-    );
+    this.transition(execution, 'completed');
 
     execution.result = result;
     execution.completedAt = Date.now();
   }
 
-  fail(
-    taskId: string,
-    result: Result,
-  ): void {
+  fail(taskId: string, result: Result): void {
     const execution = this.get(taskId);
 
-    this.transition(
-      execution,
-      'failed',
-    );
+    this.transition(execution, 'failed');
 
     execution.result = result;
     execution.completedAt = Date.now();
@@ -70,10 +50,7 @@ export class ExecutionState {
   block(taskId: string): void {
     const execution = this.get(taskId);
 
-    this.transition(
-      execution,
-      'blocked',
-    );
+    this.transition(execution, 'blocked');
 
     execution.completedAt = Date.now();
   }
@@ -82,9 +59,7 @@ export class ExecutionState {
     const execution = this.executions.get(taskId);
 
     if (!execution) {
-      throw new Error(
-        `Task execution not found: ${taskId}`,
-      );
+      throw new Error(`Task execution not found: ${taskId}`);
     }
 
     return execution;
@@ -116,17 +91,11 @@ export class ExecutionState {
     to: TaskExecutionStatus,
   ): boolean {
     if (from === 'pending') {
-      return (
-        to === 'running' ||
-        to === 'blocked'
-      );
+      return to === 'running' || to === 'blocked';
     }
 
     if (from === 'running') {
-      return (
-        to === 'completed' ||
-        to === 'failed'
-      );
+      return to === 'completed' || to === 'failed';
     }
 
     return false;

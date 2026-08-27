@@ -1,8 +1,4 @@
-import {
-  describe,
-  expect,
-  it,
-} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { Task } from '../../src/core/task.js';
 import type { Result } from '../../src/core/result.js';
@@ -49,10 +45,7 @@ describe('ExecutionState', () => {
   it('initializes tasks as pending', () => {
     const state = new ExecutionState();
 
-    state.initialize([
-      createTask('task-1'),
-      createTask('task-2'),
-    ]);
+    state.initialize([createTask('task-1'), createTask('task-2')]);
 
     expect(state.all()).toEqual([
       {
@@ -69,9 +62,7 @@ describe('ExecutionState', () => {
   it('starts a pending task', () => {
     const state = new ExecutionState();
 
-    state.initialize([
-      createTask('task-1'),
-    ]);
+    state.initialize([createTask('task-1')]);
 
     state.start('task-1');
 
@@ -84,18 +75,13 @@ describe('ExecutionState', () => {
   it('completes a running task', () => {
     const state = new ExecutionState();
 
-    state.initialize([
-      createTask('task-1'),
-    ]);
+    state.initialize([createTask('task-1')]);
 
     state.start('task-1');
 
     const result = successResult('task-1');
 
-    state.complete(
-      'task-1',
-      result,
-    );
+    state.complete('task-1', result);
 
     const execution = state.get('task-1');
 
@@ -107,18 +93,13 @@ describe('ExecutionState', () => {
   it('fails a running task', () => {
     const state = new ExecutionState();
 
-    state.initialize([
-      createTask('task-1'),
-    ]);
+    state.initialize([createTask('task-1')]);
 
     state.start('task-1');
 
     const result = failureResult('task-1');
 
-    state.fail(
-      'task-1',
-      result,
-    );
+    state.fail('task-1', result);
 
     const execution = state.get('task-1');
 
@@ -130,34 +111,23 @@ describe('ExecutionState', () => {
   it('blocks a pending task', () => {
     const state = new ExecutionState();
 
-    state.initialize([
-      createTask('task-1'),
-    ]);
+    state.initialize([createTask('task-1')]);
 
     state.block('task-1');
 
-    expect(
-      state.get('task-1').status,
-    ).toBe('blocked');
+    expect(state.get('task-1').status).toBe('blocked');
   });
 
   it('rejects invalid transitions', () => {
     const state = new ExecutionState();
 
-    state.initialize([
-      createTask('task-1'),
-    ]);
+    state.initialize([createTask('task-1')]);
 
     state.start('task-1');
 
-    state.complete(
-      'task-1',
-      successResult('task-1'),
-    );
+    state.complete('task-1', successResult('task-1'));
 
-    expect(() =>
-      state.start('task-1'),
-    ).toThrow(
+    expect(() => state.start('task-1')).toThrow(
       'Invalid task execution transition',
     );
   });
@@ -165,16 +135,9 @@ describe('ExecutionState', () => {
   it('rejects completing a pending task', () => {
     const state = new ExecutionState();
 
-    state.initialize([
-      createTask('task-1'),
-    ]);
+    state.initialize([createTask('task-1')]);
 
-    expect(() =>
-      state.complete(
-        'task-1',
-        successResult('task-1'),
-      ),
-    ).toThrow(
+    expect(() => state.complete('task-1', successResult('task-1'))).toThrow(
       'Invalid task execution transition',
     );
   });
@@ -182,9 +145,7 @@ describe('ExecutionState', () => {
   it('rejects unknown tasks', () => {
     const state = new ExecutionState();
 
-    expect(() =>
-      state.start('missing'),
-    ).toThrow(
+    expect(() => state.start('missing')).toThrow(
       'Task execution not found: missing',
     );
   });
@@ -193,12 +154,7 @@ describe('ExecutionState', () => {
     const state = new ExecutionState();
 
     expect(() =>
-      state.initialize([
-        createTask('task-1'),
-        createTask('task-1'),
-      ]),
-    ).toThrow(
-      'Duplicate task ID: task-1',
-    );
+      state.initialize([createTask('task-1'), createTask('task-1')]),
+    ).toThrow('Duplicate task ID: task-1');
   });
 });

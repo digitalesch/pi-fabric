@@ -14,6 +14,7 @@ import { Planner } from '../../src/runtime/planner.js';
 import { RecordingNode } from '../helpers/recording-node.js';
 import { ConcurrencyNode } from '../helpers/concurrency-node.js';
 import { DelayedNode } from '../helpers/delayed-node.js';
+import { ExecutionHistory } from '../../src/runtime/execution-history.js';
 
 function createTask(id: string, dependencies: string[] = []): Task {
   return {
@@ -48,6 +49,38 @@ function makeTask(id: string, dependencies: string[] = []): Task {
 }
 
 describe('PlanExecutor execution state', () => {
+  it('emits task lifecycle events', async () => {
+    const nodeRegistry = new NodeRegistry();
+
+    const node = new RecordingNode('node-1');
+
+    nodeRegistry.register(node);
+
+    const selector = new NodeSelector(new QualityFirstPolicy());
+
+    const taskExecutor = new Executor(nodeRegistry, selector);
+
+    const history = new ExecutionHistory();
+
+    const planExecutor = new PlanExecutor(taskExecutor, history, Infinity);
+
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: createTask('task-1'),
+          nodeId: 'node-1',
+        },
+      ],
+    };
+
+    await planExecutor.execute(plan);
+
+    expect(history.all().map((event) => event.type)).toEqual([
+      'task_started',
+      'task_completed',
+    ]);
+  });
+
   it('tracks successful task execution', async () => {
     const nodeRegistry = new NodeRegistry();
 
@@ -55,18 +88,11 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(
-      new QualityFirstPolicy(),
-    );
+    const selector = new NodeSelector(new QualityFirstPolicy());
 
-    const taskExecutor = new Executor(
-      nodeRegistry,
-      selector,
-    );
+    const taskExecutor = new Executor(nodeRegistry, selector);
 
-    const planExecutor = new PlanExecutor(
-      taskExecutor,
-    );
+    const planExecutor = new PlanExecutor(taskExecutor);
 
     const plan: PhysicalPlan = {
       tasks: [
@@ -93,9 +119,7 @@ describe('PlanExecutor execution state', () => {
 
     expect(results).toHaveLength(1);
 
-    expect(
-      planExecutor.executionState.get('task-1'),
-    ).toMatchObject({
+    expect(planExecutor.executionState.get('task-1')).toMatchObject({
       taskId: 'task-1',
       status: 'completed',
       result: results[0],
@@ -128,18 +152,11 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(
-      new QualityFirstPolicy(),
-    );
+    const selector = new NodeSelector(new QualityFirstPolicy());
 
-    const taskExecutor = new Executor(
-      nodeRegistry,
-      selector,
-    );
+    const taskExecutor = new Executor(nodeRegistry, selector);
 
-    const planExecutor = new PlanExecutor(
-      taskExecutor,
-    );
+    const planExecutor = new PlanExecutor(taskExecutor);
 
     const plan: PhysicalPlan = {
       tasks: [
@@ -167,9 +184,7 @@ describe('PlanExecutor execution state', () => {
     expect(results).toHaveLength(1);
     expect(results[0].success).toBe(false);
 
-    expect(
-      planExecutor.executionState.get('task-1'),
-    ).toMatchObject({
+    expect(planExecutor.executionState.get('task-1')).toMatchObject({
       taskId: 'task-1',
       status: 'failed',
       result: results[0],
@@ -182,8 +197,7 @@ describe('PlanExecutor execution state', () => {
     const failingNode = new RecordingNode('failing-node');
     const dependentNode = new RecordingNode('dependent-node');
 
-    const originalExecute =
-      failingNode.execute.bind(failingNode);
+    const originalExecute = failingNode.execute.bind(failingNode);
 
     failingNode.execute = async (task) => {
       await originalExecute(task);
@@ -205,18 +219,11 @@ describe('PlanExecutor execution state', () => {
     nodeRegistry.register(failingNode);
     nodeRegistry.register(dependentNode);
 
-    const selector = new NodeSelector(
-      new QualityFirstPolicy(),
-    );
+    const selector = new NodeSelector(new QualityFirstPolicy());
 
-    const taskExecutor = new Executor(
-      nodeRegistry,
-      selector,
-    );
+    const taskExecutor = new Executor(nodeRegistry, selector);
 
-    const planExecutor = new PlanExecutor(
-      taskExecutor,
-    );
+    const planExecutor = new PlanExecutor(taskExecutor);
 
     const plan: PhysicalPlan = {
       tasks: [
@@ -259,16 +266,12 @@ describe('PlanExecutor execution state', () => {
 
     expect(results).toHaveLength(2);
 
-    expect(
-      planExecutor.executionState.get('task-1'),
-    ).toMatchObject({
+    expect(planExecutor.executionState.get('task-1')).toMatchObject({
       taskId: 'task-1',
       status: 'failed',
     });
 
-    expect(
-      planExecutor.executionState.get('task-2'),
-    ).toMatchObject({
+    expect(planExecutor.executionState.get('task-2')).toMatchObject({
       taskId: 'task-2',
       status: 'blocked',
     });
@@ -283,18 +286,11 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(
-      new QualityFirstPolicy(),
-    );
+    const selector = new NodeSelector(new QualityFirstPolicy());
 
-    const taskExecutor = new Executor(
-      nodeRegistry,
-      selector,
-    );
+    const taskExecutor = new Executor(nodeRegistry, selector);
 
-    const planExecutor = new PlanExecutor(
-      taskExecutor,
-    );
+    const planExecutor = new PlanExecutor(taskExecutor);
 
     const plan: PhysicalPlan = {
       tasks: [
@@ -335,9 +331,7 @@ describe('PlanExecutor execution state', () => {
 
     await planExecutor.execute(plan);
 
-    expect(
-      planExecutor.executionState.all(),
-    ).toMatchObject([
+    expect(planExecutor.executionState.all()).toMatchObject([
       {
         taskId: 'task-1',
         status: 'completed',
@@ -510,7 +504,11 @@ describe('PlanExecutor execution state', () => {
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
-    const planExecutor = new PlanExecutor(taskExecutor, 2);
+    const planExecutor = new PlanExecutor(
+      taskExecutor,
+      new ExecutionHistory(),
+      2,
+    );
 
     const plan: PhysicalPlan = {
       tasks: Array.from({ length: 6 }, (_, index) => ({
@@ -562,7 +560,11 @@ describe('PlanExecutor execution state', () => {
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
-    const planExecutor = new PlanExecutor(taskExecutor, 2);
+    const planExecutor = new PlanExecutor(
+      taskExecutor,
+      new ExecutionHistory(),
+      2,
+    );
 
     const plan: PhysicalPlan = {
       tasks: [
@@ -785,7 +787,7 @@ describe('PlanExecutor execution state', () => {
 
     const executor = new Executor(registry, selector);
 
-    const planExecutor = new PlanExecutor(executor, 2);
+    const planExecutor = new PlanExecutor(executor, new ExecutionHistory(), 2);
 
     const plan: PhysicalPlan = {
       tasks: [
@@ -1144,7 +1146,7 @@ describe('PlanExecutor execution state', () => {
       new NodeSelector(new QualityFirstPolicy()),
     );
 
-    const planExecutor = new PlanExecutor(executor, 2);
+    const planExecutor = new PlanExecutor(executor, new ExecutionHistory(), 2);
 
     const plan: PhysicalPlan = {
       tasks: [
@@ -1219,7 +1221,7 @@ describe('PlanExecutor execution state', () => {
       new NodeSelector(new QualityFirstPolicy()),
     );
 
-    const planExecutor = new PlanExecutor(executor, 2);
+    const planExecutor = new PlanExecutor(executor, new ExecutionHistory(), 2);
 
     const plan: PhysicalPlan = {
       tasks: [
@@ -1465,7 +1467,11 @@ describe('PlanExecutor execution state', () => {
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
-    const planExecutor = new PlanExecutor(taskExecutor, 2);
+    const planExecutor = new PlanExecutor(
+      taskExecutor,
+      new ExecutionHistory(),
+      2,
+    );
 
     const createTask = (id: string): Task => ({
       id,

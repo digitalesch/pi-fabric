@@ -72,10 +72,10 @@ The objective is intentionally high-level.
 
 It does not specify:
 
-* which model should execute the work
-* which machine should perform it
-* how tasks should be ordered
-* how many workers are required
+- which model should execute the work
+- which machine should perform it
+- how tasks should be ordered
+- how many workers are required
 
 Those decisions belong to later stages.
 
@@ -699,11 +699,11 @@ A `ModelNode` is an execution resource.
 
 It could represent:
 
-* a local language model
-* a remote API
-* a specialized model
-* a deterministic tool
-* a future non-LLM computational worker
+- a local language model
+- a remote API
+- a specialized model
+- a deterministic tool
+- a future non-LLM computational worker
 
 The fabric does not fundamentally care.
 
@@ -1090,28 +1090,28 @@ This separation allows each layer to evolve independently.
 
 The current implementation includes:
 
-* Task model
-* Plan model
-* Physical plan
-* Model nodes
-* Node registry
-* Capability discovery
-* Execution requirements
-* Node selection
-* Scheduling policies
-* Planner
-* Executor
-* Retry handling
-* Plan executor
-* Task graph
-* DAG validation
-* Cycle detection
-* Dependency propagation
-* Concurrent execution
-* Execution state
-* Evaluation
-* Replanning
-* Fabric orchestration
+- Task model
+- Plan model
+- Physical plan
+- Model nodes
+- Node registry
+- Capability discovery
+- Execution requirements
+- Node selection
+- Scheduling policies
+- Planner
+- Executor
+- Retry handling
+- Plan executor
+- Task graph
+- DAG validation
+- Cycle detection
+- Dependency propagation
+- Concurrent execution
+- Execution state
+- Evaluation
+- Replanning
+- Fabric orchestration
 
 The test suite currently contains more than 100 passing tests and acts as the primary behavioral safety net for the architecture.
 
@@ -1132,17 +1132,18 @@ task-4   blocked
 
 That creates a foundation for:
 
-* execution events
-* progress reporting
-* metrics
-* tracing
-* debugging
-* DAG visualization
-* execution history
-* retry history
-* future scheduling decisions
+- execution events
+- progress reporting
+- metrics
+- tracing
+- debugging
+- DAG visualization
+- execution history
+- retry history
+- future scheduling decisions
 
 The important thing is that these capabilities can now be added **around the execution model** instead of being mixed into the core orchestration logic.
 
 ```
+
 ```
