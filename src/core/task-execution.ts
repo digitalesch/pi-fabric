@@ -5,12 +5,11 @@ export type TaskExecutionStatus =
 
 export interface TaskExecution {
   taskId: string;
-
   status: TaskExecutionStatus;
 
-  result?: Result;
-
   startedAt?: number;
-
   completedAt?: number;
+  durationMs?: number;
+
+  result?: Result;
 }

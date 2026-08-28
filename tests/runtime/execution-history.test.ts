@@ -28,6 +28,65 @@ const failureResult = (taskId: string): Result => ({
 });
 
 describe('ExecutionHistory', () => {
+  it('records retry events', () => {
+    const history = new ExecutionHistory();
+
+    history.record({
+      type: 'task_retrying',
+      taskId: 'task-1',
+      nodeId: 'node-1',
+      attempt: 2,
+    });
+
+    expect(history.byType('task_retrying')).toHaveLength(1);
+
+    expect(history.latest('task-1')).toMatchObject({
+      type: 'task_retrying',
+      taskId: 'task-1',
+      nodeId: 'node-1',
+      attempt: 2,
+    });
+  });
+
+  it('preserves retry order', () => {
+    const history = new ExecutionHistory();
+
+    history.record({
+      type: 'task_started',
+      taskId: 'task-1',
+      nodeId: 'node-1',
+      attempt: 1,
+    });
+
+    history.record({
+      type: 'task_retrying',
+      taskId: 'task-1',
+      nodeId: 'node-1',
+      attempt: 2,
+    });
+
+    history.record({
+      type: 'task_started',
+      taskId: 'task-1',
+      nodeId: 'node-1',
+      attempt: 2,
+    });
+
+    history.record({
+      type: 'task_completed',
+      taskId: 'task-1',
+      nodeId: 'node-1',
+      attempt: 2,
+    });
+
+    expect(history.forTask('task-1').map((event) => event.type)).toEqual([
+      'task_started',
+      'task_retrying',
+      'task_started',
+      'task_completed',
+    ]);
+  });
+
   it('returns the latest event for a task', () => {
     const history = new ExecutionHistory();
 

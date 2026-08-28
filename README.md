@@ -4,9 +4,13 @@ Pi Fabric is an execution fabric for orchestrating heterogeneous model nodes.
 
 The core idea is to separate **planning**, **scheduling**, **execution**, and **evaluation** so that different models can collaborate on complex objectives without every model having to perform the entire reasoning process.
 
+Pi Fabric is intentionally **model-agnostic**. The runtime provides the machinery for planning and executing work; model nodes are replaceable execution resources.
+
+---
+
 ## Architecture
 
-Pi Fabric currently follows this execution flow:
+Pi Fabric follows this execution flow:
 
 ```text
 Objective
@@ -37,10 +41,6 @@ PlanExecutor
    ▼
 Executor
    │
-   ├── RetryPolicy
-   │
-   └── failover between capable nodes
-   │
    ▼
 ModelNode
    │
@@ -60,7 +60,11 @@ Thinker
                           └──► execute again
 ```
 
-For a deeper explanation of the execution model, see [`docs/execution-model.md`](docs/execution-model.md).
+For a deeper explanation of the execution lifecycle, see [`docs/execution-model.md`](docs/execution-model.md).
+
+For execution introspection and observability, see [`docs/observability.md`](docs/observability.md).
+
+---
 
 ## Core Concepts
 
@@ -75,7 +79,17 @@ It can:
 - replan after failed evaluation
 - synthesize the final result
 
-The `Thinker` intentionally operates above the execution layer. It decides **what should happen**, while the runtime determines **how and where it happens**.
+The `Thinker` intentionally operates above the execution layer.
+
+It decides:
+
+> **What should happen?**
+
+The runtime determines:
+
+> **How and where should it happen?**
+
+---
 
 ### Task
 
@@ -83,16 +97,14 @@ A task represents a logical unit of work.
 
 Tasks describe:
 
-- what aspect they address
-- their input
+- the aspect they address
+- input
 - contextual information
 - expected output
 - dependencies
 - execution requirements
 
 A task does **not** specify which model should execute it.
-
-This distinction is fundamental:
 
 ```text
 Task
@@ -103,6 +115,10 @@ ModelNode
  │
  └── describes WHERE / WITH WHAT resource it happens
 ```
+
+This separation allows the same logical task to be executed by different nodes.
+
+---
 
 ### TaskGraph
 
@@ -120,19 +136,19 @@ It is responsible for:
 - finding direct dependents
 - producing topological ordering
 
-This keeps DAG semantics separate from the execution mechanics.
+DAG semantics are therefore kept separate from execution mechanics.
 
 For example:
 
 ```text
-       A
-      / \
-     B   C
-      \ /
-       D
+      A
+     / \
+    B   C
+     \ /
+      D
 ```
 
-For this graph:
+The graph can answer questions such as:
 
 ```ts
 graph.dependencies('D');
@@ -144,6 +160,8 @@ graph.dependents('A');
 graph.ready(completed);
 // tasks whose dependencies are satisfied
 ```
+
+---
 
 ### ModelNode
 
@@ -157,9 +175,9 @@ A node may represent:
 - a deterministic tool
 - another computational worker
 
-Nodes advertise their capabilities so the fabric can select an appropriate execution resource for each task.
+Nodes advertise capabilities so the fabric can select an appropriate execution resource for each task.
 
-A capability describes properties such as:
+A capability can describe properties such as:
 
 ```text
 aspect
@@ -169,7 +187,7 @@ latency
 locality
 ```
 
-This allows the same logical task to potentially be executed by different models.
+---
 
 ### Node Selection
 
@@ -181,7 +199,7 @@ The current policy is:
 QualityFirstPolicy
 ```
 
-It filters candidates according to execution requirements such as:
+The policy considers execution requirements such as:
 
 - minimum quality
 - minimum context window
@@ -190,9 +208,9 @@ It filters candidates according to execution requirements such as:
 
 It then selects the highest-quality capable node.
 
-This separation allows additional scheduling policies to be introduced without changing the planner or executor.
+The separation allows additional scheduling strategies to be introduced without changing the planner or executor.
 
-Future policies could include:
+Possible future policies include:
 
 ```text
 QualityFirst
@@ -202,15 +220,17 @@ CostFirst
 LoadAware
 ```
 
+---
+
 ### Planner
 
 The `Planner` converts a logical `Plan` into a `PhysicalPlan`.
 
-For every task it:
+For each task it:
 
 1. finds nodes capable of handling the task's aspect
 2. applies the configured scheduling policy
-3. assigns the selected node
+3. assigns an execution node
 4. produces a physical task
 
 ```text
@@ -226,31 +246,33 @@ NodeSelector
 Physical Task
 ```
 
-The planner therefore answers:
+The planner answers:
 
 > **Where should this task run?**
+
+---
 
 ### PlanExecutor
 
 `PlanExecutor` executes a physical plan while respecting task dependencies.
 
-It uses the task graph to determine which tasks are ready to execute.
+It uses `TaskGraph` to determine which tasks are ready.
 
 Independent tasks can execute concurrently, subject to `maxConcurrency`.
 
-For example:
+For:
 
 ```text
-       A
-      / \
-     B   C
-      \ /
-       D
+      A
+     / \
+    B   C
+     \ /
+      D
 ```
 
-Once `A` completes, `B` and `C` can execute concurrently.
+once `A` completes, `B` and `C` may execute concurrently.
 
-The executor also propagates dependency failures:
+Dependency failures are propagated through the graph:
 
 ```text
 A ── failed
@@ -259,17 +281,23 @@ A ── failed
 B ── blocked
 ```
 
-A blocked task is not sent to its model node.
+A blocked task is never sent to its model node.
 
-`PlanExecutor` coordinates execution lifecycle tracking through `ExecutionState` and records execution events through `ExecutionHistory`.
+`PlanExecutor` also coordinates:
 
-It is responsible for **orchestrating tasks**, not deciding which model should perform them.
+- execution lifecycle state
+- execution event recording
+- concurrency
+- dependency failure propagation
+- execution completion
+
+---
 
 ### ExecutionState
 
-`ExecutionState` represents the **current lifecycle state** of tasks during execution.
+`ExecutionState` represents the **current lifecycle state** of tasks.
 
-A task can move through states such as:
+A task can move through:
 
 ```text
 pending
@@ -287,13 +315,29 @@ pending
 blocked
 ```
 
-`ExecutionState` answers:
+`ExecutionState` tracks:
 
-> **What is the current state of this task?**
+- current status
+- start time
+- completion time
+- execution duration
+- task result
 
-It tracks the live execution state independently from the `Result` produced by a task.
+It also exposes an `ExecutionSnapshot`, which provides an aggregate view of the current run:
 
-This distinction is important:
+```text
+total
+pending
+running
+completed
+failed
+blocked
+finished
+executions
+durationMs
+```
+
+The distinction between a result and execution state is intentional:
 
 ```text
 Result
@@ -305,77 +349,126 @@ ExecutionState
  └── What is the task's lifecycle state?
 ```
 
+---
+
 ### ExecutionHistory
 
-`ExecutionHistory` records events that occur during execution.
+`ExecutionHistory` records what happened during execution.
 
-Examples include:
+Events include:
 
 ```text
 task_started
 task_completed
 task_failed
 task_blocked
+task_retrying
 ```
 
-`ExecutionHistory` answers:
+Each event can contain information such as:
+
+```text
+taskId
+nodeId
+attempt
+result
+timestamp
+```
+
+History answers:
 
 > **What happened during this execution?**
 
-The distinction between state and history is intentional:
+For example:
 
 ```text
-ExecutionState
-     │
-     └── current execution state
-
-
-ExecutionHistory
-     │
-     └── chronological execution events
+task_started
+task_retrying
+task_started
+task_completed
 ```
 
-For example, a task may currently be:
+This is deliberately different from current execution state.
+
+A task may currently be:
 
 ```text
 completed
 ```
 
-while its history contains:
+while its history contains several events documenting retries.
+
+---
+
+### Execution Metrics
+
+Execution metrics are derived from the execution snapshot and history.
+
+The runtime currently exposes metrics including:
 
 ```text
-task_started
-task_completed
+totalTasks
+completedTasks
+failedTasks
+blockedTasks
+successRate
+totalDurationMs
+averageDurationMs
+retryCount
 ```
 
-This separation provides the foundation for:
+This provides a lightweight quantitative view of an execution without coupling metrics to the executor itself.
 
-- execution timelines
-- debugging
-- progress reporting
-- metrics
-- tracing
-- DAG visualization
-- retry analysis
-- future scheduling decisions
+---
 
-`ExecutionHistory` is currently a simple in-memory execution record. More advanced persistence or observability mechanisms can be introduced later without changing the core task execution model.
+### Critical Path
+
+The runtime can calculate the critical path through a completed execution graph.
+
+The critical path represents the dependency chain with the greatest cumulative execution duration.
+
+For example:
+
+```text
+A ── 10ms ──► B ── 30ms ──► D
+ \
+  └─ 5ms ──► C ── 5ms ─────► D
+```
+
+The runtime identifies:
+
+```text
+A → B → D
+```
+
+as the critical path.
+
+Zero-duration tasks remain part of the path when they connect otherwise critical tasks.
+
+When paths have equal duration, the runtime prefers the path containing more tasks. This preserves the complete dependency chain rather than arbitrarily dropping zero-duration nodes.
+
+Critical-path analysis provides a foundation for:
+
+- performance analysis
+- bottleneck identification
+- scheduling improvements
+- execution visualization
+
+---
 
 ### Executor
 
-`Executor` handles execution against model nodes.
+`Executor` handles execution against a specific node.
 
 It is responsible for:
 
 - looking up nodes
 - executing tasks
-- applying retry policies
+- retrying failed execution when configured
 - converting thrown node errors into `Result`s
-- failing over between capable nodes when execution is exhausted
+- failing over between candidate nodes
 
 Node selection is intentionally outside this class.
-
-The separation is:
 
 ```text
 NodeSelector
@@ -384,76 +477,18 @@ NodeSelector
     ▼
 Executor
     │
-    │ executes reliably
+    │ executes
     ▼
 ModelNode
 ```
 
-#### Retry and Failover
+Retries are controlled by a `RetryPolicy`.
 
-Retry and node failover are deliberately separate concepts.
+A node can therefore fail temporarily without immediately causing the entire execution to fail.
 
-A retry occurs **within the currently selected node**.
+If a node exhausts its retry attempts, the executor can move to another candidate node when one is available.
 
-Failover occurs **after that node's retry policy has been exhausted**.
-
-```text
-                 Task
-                   │
-                   ▼
-                Node A
-                   │
-          ┌────────┼────────┐
-          ▼        ▼        ▼
-       attempt   attempt   attempt
-          1        2        3
-          │        │        │
-          ❌        ❌        ❌
-                            │
-                       retries exhausted
-                            │
-                            ▼
-                         Node B
-                            │
-                            ▼
-                            ✅
-```
-
-This establishes the runtime contract:
-
-> **Retry within a node first; fail over to another capable node only after that node's retry policy is exhausted.**
-
-A node that eventually succeeds prevents unnecessary failover:
-
-```text
-Node A
-  ├── attempt 1 ❌
-  ├── attempt 2 ❌
-  └── attempt 3 ✅
-
-Node B
-  └── never executed
-```
-
-When all capable nodes are exhausted, the executor returns the final failure result.
-
-This keeps responsibilities clean:
-
-```text
-RetryPolicy
-    │
-    └── How many attempts should this node receive?
-
-Executor
-    │
-    └── When should execution move to another node?
-
-NodeSelector
-    │
-    └── Which capable node should be selected?
-```
-
-An explicit `executeOn(task, nodeId)` execution targets one specific node and does not perform node selection or failover.
+---
 
 ### Evaluator
 
@@ -465,7 +500,7 @@ Its output is represented by an `Evaluation` containing:
 - acceptance status
 - issues
 
-Execution success and evaluation acceptance are deliberately separate concepts.
+Execution success and evaluation acceptance are deliberately separate.
 
 A task can execute successfully while still producing a result that the evaluator rejects:
 
@@ -484,6 +519,8 @@ Evaluation
 accepted = false
 ```
 
+---
+
 ### Fabric
 
 `Fabric` is the high-level orchestration boundary.
@@ -492,50 +529,50 @@ A run follows this general loop:
 
 ```text
 Think
-  │
-  ▼
+ │
+ ▼
 Plan
-  │
-  ▼
+ │
+ ▼
 Validate
-  │
-  ▼
+ │
+ ▼
 Schedule
-  │
-  ▼
+ │
+ ▼
 Execute
-  │
-  ├──► ExecutionState
-  │
-  └──► ExecutionHistory
-  │
-  ▼
+ │
+ ├──► ExecutionState
+ │
+ └──► ExecutionHistory
+ │
+ ▼
 Evaluate
-  │
-  ├── accepted ──► Synthesize
-  │
-  └── rejected ──► Replan
+ │
+ ├── accepted ──► Synthesize
+ │
+ └── rejected ──► Replan
                          │
                          └──► Execute again
 ```
 
-The fabric limits the number of execution/replanning attempts to prevent unbounded loops.
+The fabric limits execution/replanning attempts to prevent unbounded loops.
+
+---
 
 ## Design Principles
 
-Pi Fabric is being built around a few core principles.
-
 ### Separation of Concerns
 
-Planning, scheduling, execution, evaluation, and orchestration should remain independently replaceable.
+Planning, scheduling, execution, evaluation, and orchestration remain independently replaceable.
 
 ### Capability-Driven Execution
 
-Tasks should describe what they need rather than which model should execute them.
+Tasks describe what they need rather than which model should execute them.
 
 ### Policy-Driven Scheduling
 
-Node selection should be configurable through scheduling policies.
+Node selection is configurable through scheduling policies.
 
 ### DAG-Native Execution
 
@@ -549,48 +586,55 @@ Different tasks can be assigned to different models based on their capabilities 
 
 Current task state and historical execution events are represented separately.
 
-This keeps runtime state useful for orchestration while keeping execution history useful for observability and analysis.
+### Observable Runtime
 
-### Reliable Execution
-
-Retries and node failover are explicit runtime responsibilities.
-
-A transient failure should not necessarily terminate execution, while a persistently failing node should not prevent another capable node from being used.
+Execution state, history, metrics, and critical-path analysis provide introspection without coupling observability concerns into core execution mechanics.
 
 ### Test-Driven Architecture
 
 New abstractions are introduced through explicit behavioral contracts and tested before being integrated into the execution path.
 
+---
+
 ## Testing
 
-The test suite provides the behavioral safety net for the architecture.
+The test suite is the behavioral safety net for the architecture.
 
 Coverage currently includes:
 
+- task and plan modeling
 - node selection
 - scheduling policies
 - planning
 - execution
 - retries
-- retry attempt tracking
 - node failover
 - dependency handling
 - DAG validation
 - cycle detection
-- concurrency
+- concurrent execution
 - execution state
+- execution snapshots
 - execution history
-- execution event recording
-- evaluation and replanning
+- retry history
+- execution metrics
+- critical-path analysis
+- evaluation
+- replanning
+- execution runs
 - fabric orchestration
 
-Run the suite with:
+Run the full suite with:
 
 ```bash
 npm test
 ```
 
-The project currently has **157 passing tests**.
+The current test suite contains **216 passing tests**.
+
+The number is intentionally tracked as an indicator of the growing behavioral contract rather than as a measure of implementation quality by itself.
+
+---
 
 ## Current Status
 
@@ -608,7 +652,6 @@ The major runtime pieces currently in place are:
 - [x] Planner
 - [x] Executor
 - [x] Retry policy
-- [x] Retry attempt tracking
 - [x] Node failover
 - [x] Plan executor
 - [x] DAG dependency handling
@@ -617,19 +660,25 @@ The major runtime pieces currently in place are:
 - [x] Concurrent execution
 - [x] Plan validation
 - [x] Execution state
+- [x] Execution snapshot
 - [x] Execution history
 - [x] Execution event recording
+- [x] Retry event recording
+- [x] Execution metrics
+- [x] Critical-path analysis
 - [x] Evaluator
 - [x] Thinker interface
 - [x] Evaluation/replanning loop
 - [x] Fabric orchestration
 - [x] Runtime test coverage
 
+---
+
 ## Next
 
 The next architectural focus is **observability and execution introspection**.
 
-With explicit task graphs, execution state, execution history, retry semantics, and node failover, Pi Fabric now has the foundation for:
+The runtime now has the foundations for:
 
 - execution timelines
 - progress reporting
@@ -638,12 +687,15 @@ With explicit task graphs, execution state, execution history, retry semantics, 
 - execution tracing
 - debugging tools
 - DAG visualization
-- retry history
-- node failover analysis
+- retry analysis
 - richer scheduling decisions
 
-The goal is to make the fabric not only capable of executing a plan, but also capable of explaining:
+The goal is to make the fabric not only capable of executing a plan, but capable of explaining:
 
-> **what it is doing, why it is doing it, and what happened at each stage.**
+> **What is it doing? Why is it doing it? What happened at each stage?**
 
-The architecture should continue to evolve from this foundation without coupling observability concerns to the core execution mechanics.
+Pi Fabric should evolve toward an execution system where planning, execution, evaluation, and observation remain distinct but work together as a coherent runtime.
+
+```
+
+```

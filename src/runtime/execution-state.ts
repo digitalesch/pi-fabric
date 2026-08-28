@@ -4,6 +4,7 @@ import type {
 } from '../core/task-execution.js';
 import type { Result } from '../core/result.js';
 import type { Task } from '../core/task.js';
+import type { ExecutionSnapshot } from '../core/execution-snapshot.js';
 
 export class ExecutionState {
   private readonly executions = new Map<string, TaskExecution>();
@@ -36,6 +37,8 @@ export class ExecutionState {
 
     execution.result = result;
     execution.completedAt = Date.now();
+
+    this.setDuration(execution);
   }
 
   fail(taskId: string, result: Result): void {
@@ -45,6 +48,8 @@ export class ExecutionState {
 
     execution.result = result;
     execution.completedAt = Date.now();
+
+    this.setDuration(execution);
   }
 
   block(taskId: string): void {
@@ -70,7 +75,58 @@ export class ExecutionState {
   }
 
   all(): TaskExecution[] {
-    return [...this.executions.values()];
+    return [...this.executions.values()].map((execution) => ({ ...execution }));
+  }
+
+  snapshot(): ExecutionSnapshot {
+    const executions = this.all();
+
+    const pending = executions.filter(
+      (execution) => execution.status === 'pending',
+    ).length;
+
+    const running = executions.filter(
+      (execution) => execution.status === 'running',
+    ).length;
+
+    const completed = executions.filter(
+      (execution) => execution.status === 'completed',
+    ).length;
+
+    const failed = executions.filter(
+      (execution) => execution.status === 'failed',
+    ).length;
+
+    const blocked = executions.filter(
+      (execution) => execution.status === 'blocked',
+    ).length;
+
+    const finished = executions.length > 0 && pending === 0 && running === 0;
+
+    const durationMs = executions.reduce(
+      (total, execution) => total + (execution.durationMs ?? 0),
+      0,
+    );
+
+    return {
+      total: executions.length,
+      pending,
+      running,
+      completed,
+      failed,
+      blocked,
+      finished,
+      executions,
+    };
+  }
+
+  private setDuration(execution: TaskExecution): void {
+    if (
+      execution.startedAt !== undefined &&
+      execution.completedAt !== undefined
+    ) {
+      execution.durationMs = execution.completedAt - execution.startedAt;
+    }
   }
 
   private transition(

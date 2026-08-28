@@ -1,1282 +1,424 @@
 # Pi Fabric Execution Model
 
-Pi Fabric is an execution fabric for coordinating heterogeneous model nodes.
+Pi Fabric separates logical planning from physical execution.
 
-The system separates **reasoning**, **planning**, **scheduling**, **execution**, and **evaluation** so that each responsibility can evolve independently.
-
-The easiest way to understand Pi Fabric is to follow one objective from beginning to end.
-
----
-
-## 1. The Big Picture
-
-A complete execution follows this flow:
+The central execution pipeline is:
 
 ```text
 Objective
-   │
-   ▼
+    │
+    ▼
 Thinker
-   │
-   │ creates logical Plan
-   ▼
+    │
+    ▼
 Plan
-   │
-   ▼
+    │
+    ▼
 Planner
-   │
-   ├── NodeRegistry
-   ├── NodeSelector
-   │      └── SchedulingPolicy
-   │
-   ▼
+    │
+    ▼
 PhysicalPlan
-   │
-   ▼
+    │
+    ▼
 PlanExecutor
-   │
-   ├── TaskGraph
-   ├── ExecutionState
-   │
-   ▼
+    │
+    ├── TaskGraph
+    ├── ExecutionState
+    └── ExecutionHistory
+    │
+    ▼
 Executor
-   │
-   ▼
+    │
+    ▼
 ModelNode
-   │
-   ▼
+    │
+    ▼
 Result
-   │
-   ▼
+    │
+    ▼
 Evaluator
-   │
-   ▼
-Thinker
-   │
-   ├── accepted ──► Synthesize
-   │
-   └── rejected ──► Replan
-                         │
-                         └──► execute again
-```
-
-The `Fabric` is the high-level orchestrator connecting these pieces.
-
----
-
-# 2. Objective
-
-An `Objective` represents what the user wants the system to accomplish.
-
-The objective is intentionally high-level.
-
-It does not specify:
-
-- which model should execute the work
-- which machine should perform it
-- how tasks should be ordered
-- how many workers are required
-
-Those decisions belong to later stages.
-
-```text
-Objective
-   │
-   │ "What do we want?"
-   ▼
-Thinker
-```
-
----
-
-# 3. Thinker
-
-The `Thinker` is responsible for high-level reasoning.
-
-It has four responsibilities:
-
-```text
-plan()
-evaluate()
-replan()
-synthesize()
-```
-
-### `plan()`
-
-Creates the initial logical plan.
-
-```text
-Objective
     │
-    ▼
- Thinker
+    ├── accepted
     │
-    ▼
-  Plan
+    └── rejected
+            │
+            ▼
+          Replan
 ```
-
-### `evaluate()`
-
-Receives the results and evaluations from execution and decides what should happen next.
-
-### `replan()`
-
-Creates a new plan when execution does not satisfy the objective.
-
-This is important because the system does not assume that the first plan will always be correct.
-
-### `synthesize()`
-
-Combines successful execution results into the final answer.
 
 ---
 
-# 4. Plan
+## Logical vs Physical Planning
 
-A `Plan` is a collection of logical `Task`s.
-
-A logical task describes **what needs to be done**, not where it should run.
-
-```ts
-interface Task {
-  id: string;
-  aspect: string;
-  input: unknown;
-
-  context: {
-    facts: Record<string, unknown>;
-    constraints: string[];
-    assumptions: string[];
-    references: string[];
-  };
-
-  outputSchema: unknown;
-
-  dependencies: string[];
-
-  requirements?: ExecutionRequirements;
-}
-```
-
-The important distinction is:
-
-```text
-Task
-=
-WHAT needs to happen
-```
-
-rather than:
-
-```text
-Task
-=
-WHAT needs to happen + WHICH MODEL executes it
-```
-
-That separation allows the same logical plan to run against different infrastructure.
-
----
-
-# 5. Planner
-
-The `Planner` converts the logical plan into a physical plan.
-
-For every task it:
-
-1. finds nodes capable of handling the task's aspect
-2. applies the node-selection policy
-3. selects a node
-4. creates a physical task
+A logical `Task` describes work without selecting an execution resource.
 
 ```text
 Logical Task
-     │
-     ▼
-NodeRegistry
-     │
-     ▼
-NodeSelector
-     │
-     ▼
-SchedulingPolicy
-     │
-     ▼
+    │
+    │ aspect + requirements
+    ▼
+Planner
+    │
+    ├── NodeRegistry
+    ├── AspectRegistry
+    └── NodeSelector
+            │
+            ▼
+      SchedulingPolicy
+            │
+            ▼
 Physical Task
-```
-
-The planner therefore answers:
-
-> **Where should this task run?**
-
----
-
-# 6. Capabilities
-
-Nodes advertise capabilities.
-
-A capability describes what a node can do and how well it can do it.
-
-Conceptually:
-
-```text
-Node
- │
- ├── aspect
- ├── quality
- ├── context window
- ├── latency
- └── locality
-```
-
-For example:
-
-```text
-Node A
-  extract_requirements
-  quality: 0.8
-  context: 8192
-  local: true
-
-Node B
-  extract_requirements
-  quality: 0.95
-  context: 32768
-  local: false
-```
-
-A task can then express requirements such as:
-
-```text
-minimum quality: 0.9
-minimum context: 16000
-local only: false
-```
-
-The planner does not need to know the implementation details of either node.
-
----
-
-# 7. Scheduling Policies
-
-`NodeSelector` delegates the actual selection strategy to a `SchedulingPolicy`.
-
-The current implementation uses:
-
-```text
-QualityFirstPolicy
-```
-
-The policy first filters nodes that do not satisfy the task requirements.
-
-It then selects the highest-quality remaining candidate.
-
-This separation is intentional.
-
-The system can eventually support policies such as:
-
-```text
-QualityFirst
-LatencyFirst
-LocalFirst
-CostFirst
-RoundRobin
-LoadAware
-```
-
-without changing the planner.
-
----
-
-# 8. PhysicalPlan
-
-A `PhysicalPlan` contains `PhysicalTask`s.
-
-A physical task adds the execution location to the logical task.
-
-Conceptually:
-
-```text
-Task
- │
- └── nodeId
-       │
-       ▼
-PhysicalTask
 ```
 
 The logical plan answers:
 
-> What should happen?
+> **What work needs to happen?**
 
 The physical plan answers:
 
-> What should happen, and where?
+> **Where will that work happen?**
+
+This distinction allows the same plan to be executed against different node configurations.
 
 ---
 
-# 9. TaskGraph
+## Task Dependencies
 
-Once a physical plan exists, execution needs to understand dependencies.
+Dependencies are represented explicitly through `TaskGraph`.
 
-This is the responsibility of `TaskGraph`.
-
-Consider:
-
-```text
-       A
-      / \
-     B   C
-      \ /
-       D
-```
-
-The graph represents:
+For:
 
 ```text
 A
 ├── B
-│   └── D
 └── C
     └── D
 ```
 
-`TaskGraph` provides operations for understanding this structure.
+the graph determines which tasks are eligible to execute.
 
-### Dependencies
+A task becomes ready when all of its dependencies have completed successfully.
 
-```text
-dependencies(D)
-→ [B, C]
-```
-
-### Dependents
-
-```text
-dependents(A)
-→ [B, C]
-```
-
-### Roots
-
-```text
-roots()
-→ [A]
-```
-
-### Ready tasks
-
-Given completed tasks:
-
-```text
-completed = [A]
-```
-
-the graph can determine:
-
-```text
-ready()
-→ [B, C]
-```
-
-### Topological ordering
-
-The graph can also produce an order that respects dependencies:
-
-```text
-A → B → C → D
-```
-
-The exact ordering of independent tasks is not semantically important.
-
-What matters is:
-
-```text
-dependency always comes before dependent
-```
+Independent tasks may execute concurrently.
 
 ---
 
-# 10. DAG Validation
+## Dependency Failure
 
-`TaskGraph` validates the dependency structure.
-
-It rejects:
-
-### Duplicate task IDs
+A dependency failure prevents dependent tasks from executing.
 
 ```text
-A
-A
+A ── failed
+│
+├──► B ── blocked
+│
+└──► C ── blocked
 ```
 
-### Missing dependencies
+Blocked tasks are recorded in execution state and history but are never submitted to a model node.
 
-```text
-A → X
-
-X does not exist
-```
-
-### Duplicate dependencies
-
-```text
-A → B
-A → B
-```
-
-### Cycles
-
-```text
-A → B
-↑   │
-└───┘
-```
-
-A task graph must be a DAG:
-
-**Directed Acyclic Graph.**
-
-This validation happens before execution can proceed.
+This prevents the runtime from executing work whose prerequisites have failed.
 
 ---
 
-# 11. PlanExecutor
+## Concurrency
 
-`PlanExecutor` is responsible for executing the physical DAG.
+`PlanExecutor` can execute independent ready tasks concurrently.
 
-It does not decide which model should execute a task.
-
-It does not reason about the objective.
-
-It does not evaluate model quality.
-
-Its responsibility is:
-
-> **Execute the plan while respecting its dependency structure.**
-
-The execution loop is conceptually:
-
-```text
-Find ready tasks
-      │
-      ▼
-Select execution batch
-      │
-      ▼
-Execute concurrently
-      │
-      ▼
-Record results
-      │
-      ▼
-Find newly-ready tasks
-      │
-      └──────────────► repeat
-```
-
----
-
-# 12. Concurrency
-
-Independent tasks can execute concurrently.
-
-For:
-
-```text
-       A
-      / \
-     B   C
-      \ /
-       D
-```
-
-the execution is:
-
-```text
-       A
-       │
-   ┌───┴───┐
-   ▼       ▼
-   B       C
-   │       │
-   └───┬───┘
-       ▼
-       D
-```
-
-`B` and `C` do not depend on each other.
-
-Therefore they can run simultaneously.
-
-`maxConcurrency` controls how many ready tasks may execute at once.
-
----
-
-# 13. Dependency Results
-
-When a task depends on previous tasks, their results are made available through the task context.
-
-For:
-
-```text
-A → B
-```
-
-when `B` executes, its context contains the result of `A`.
+Concurrency is bounded by `maxConcurrency`.
 
 Conceptually:
 
 ```text
-B.context.facts.dependencies = {
-  A: <result of A>
-}
+             A
+          /     \
+         B       C
+          \     /
+             D
 ```
 
-This allows tasks to consume the outputs of previous tasks without coupling the executor directly to their internal output schemas.
+After `A` completes:
+
+```text
+B ─────────►
+             │
+             ▼
+            D
+             ▲
+             │
+C ─────────►
+```
+
+`B` and `C` can run simultaneously.
+
+`D` cannot begin until both are complete.
 
 ---
 
-# 14. Failure Propagation
+## Execution Lifecycle
 
-A failed dependency prevents dependent work from executing.
-
-For example:
-
-```text
-A
-│
-✗ failed
-│
-▼
-B
-│
-⊘ blocked
-│
-▼
-C
-│
-⊘ blocked
-```
-
-The dependent node is never invoked.
-
-Instead, the task receives a dependency failure result.
-
-This is an important distinction:
-
-```text
-failed
-```
-
-means:
-
-> The task actually executed and failed.
-
-while:
-
-```text
-blocked
-```
-
-means:
-
-> The task could not execute because its dependency failed.
-
----
-
-# 15. ExecutionState
-
-`ExecutionState` represents the lifecycle of every task during execution.
-
-The lifecycle is:
+Each task has an explicit lifecycle:
 
 ```text
 pending
    │
-   ├──────────────► blocked
+   ├──► blocked
    │
    ▼
 running
    │
-   ├──────────────► completed
+   ├──► completed
    │
-   └──────────────► failed
+   └──► failed
 ```
 
-These states describe **execution lifecycle**, not result quality.
+Transitions are validated by `ExecutionState`.
 
-That distinction is important.
+Invalid transitions are rejected rather than silently changing state.
 
-A `Result` answers:
+For example:
 
-> What did execution produce?
+```text
+completed → running
+```
 
-`ExecutionState` answers:
+is invalid.
 
-> What happened to this task?
+This makes runtime state transitions deterministic and testable.
 
 ---
 
-## State meanings
+## Node Execution
 
-### Pending
-
-The task exists but has not started.
+`Executor` receives a task and a selected node.
 
 ```text
-pending
-```
-
-### Running
-
-The task has been submitted for execution.
-
-```text
-running
-```
-
-### Completed
-
-The task executed successfully.
-
-```text
-completed
-```
-
-The state contains its `Result`.
-
-### Failed
-
-The task executed but produced an unsuccessful result.
-
-```text
-failed
-```
-
-The state contains its `Result`.
-
-### Blocked
-
-The task could not execute because a dependency failed.
-
-```text
-blocked
-```
-
-A blocked task does not need to invoke a model node.
-
----
-
-# 16. Executor
-
-The `Executor` is responsible for actually invoking a model node.
-
-Its responsibility is narrower than `PlanExecutor`.
-
-```text
-PlanExecutor
-    │
-    │ "This task is ready."
-    ▼
 Executor
-    │
-    │ "Run it on node X."
-    ▼
-ModelNode
+   │
+   ▼
+ModelNode.execute(task)
+   │
+   ▼
+Result
 ```
 
-This separation means the executor does not need to understand the entire DAG.
+The executor does not decide which node should execute the task.
 
-It simply executes a task against a specified node.
+That responsibility belongs to:
 
----
+```text
+NodeSelector
+```
 
-# 17. ModelNode
-
-A `ModelNode` is an execution resource.
-
-It could represent:
-
-- a local language model
-- a remote API
-- a specialized model
-- a deterministic tool
-- a future non-LLM computational worker
-
-The fabric does not fundamentally care.
-
-A node exposes capabilities and an execution interface.
-
-This is what makes heterogeneous execution possible.
+This keeps resource selection independent from execution mechanics.
 
 ---
 
-# 18. Result
+## Retry
 
-A `Result` represents what happened when a task was executed.
+Retries are controlled by `RetryPolicy`.
+
+A temporary failure can produce:
+
+```text
+attempt 1
+   │
+   ▼
+failure
+   │
+   ▼
+retry
+   │
+attempt 2
+   │
+   ▼
+success
+```
+
+Execution history records retry activity explicitly.
+
+If retries are exhausted, the executor can return the failure and allow higher-level execution logic to attempt another candidate node.
+
+---
+
+## Node Failover
+
+When multiple capable nodes are available, `Executor` can attempt candidates sequentially.
 
 Conceptually:
 
 ```text
-Result
-├── taskId
-├── success
-├── output
-├── metadata
-└── error?
-```
-
-The result belongs to the execution layer.
-
-It is separate from evaluation.
-
-A task can successfully execute and still receive a negative evaluation.
-
-For example:
-
-```text
-ModelNode
-   │
-   ▼
-Result
-success = true
-   │
-   ▼
-Evaluator
-   │
-   ▼
-Evaluation
-accepted = false
-```
-
-This distinction is fundamental to the replanning architecture.
-
----
-
-# 19. Evaluator
-
-The evaluator determines whether an execution result is acceptable.
-
-It does not execute tasks.
-
-It does not choose nodes.
-
-It evaluates results.
-
-```text
-Result
-   │
-   ▼
-Evaluator
-   │
-   ▼
-Evaluation
-```
-
-This allows execution success and semantic correctness to remain separate.
-
----
-
-# 20. Evaluation and Replanning
-
-After execution, the `Fabric` evaluates the results.
-
-If all evaluations are accepted:
-
-```text
-Execute
-   │
-   ▼
-Evaluate
-   │
-   ▼
-Accepted
-   │
-   ▼
-Synthesize
-```
-
-If evaluation fails:
-
-```text
-Execute
-   │
-   ▼
-Evaluate
-   │
-   ▼
-Rejected
-   │
-   ▼
-Replan
-   │
-   ▼
-Execute again
-```
-
-This loop is bounded by `maxAttempts`.
-
-The system therefore supports iterative reasoning without allowing an infinite execution loop.
-
----
-
-# 21. Fabric
-
-`Fabric` is the orchestration boundary.
-
-It coordinates the major components:
-
-```text
-Fabric
-│
-├── Thinker
-├── Planner
-├── PlanExecutor
-├── AspectRegistry
-├── PlanValidator
-└── Evaluator
-```
-
-It does not implement the internal behavior of these components.
-
-Instead, it coordinates them.
-
-A simplified run is:
-
-```text
-plan
+Task
  │
  ▼
-validate
+Node A
  │
- ▼
-schedule
+ └── failure
+      │
+      ▼
+Node B
  │
- ▼
-execute
- │
- ▼
-evaluate
- │
- ├── accept ──► synthesize
- │
- └── reject ──► replan
+ └── success
 ```
 
----
+Retries are exhausted on a node before moving to another candidate.
 
-# 22. Why These Components Are Separate
-
-The architecture intentionally separates several concepts that might initially look similar.
-
-## Planner vs PlanExecutor
-
-The planner answers:
-
-> Where should work run?
-
-The plan executor answers:
-
-> When can work run, and execute it respecting dependencies?
-
----
-
-## TaskGraph vs ExecutionState
-
-The task graph answers:
-
-> What depends on what?
-
-Execution state answers:
-
-> What happened to each task?
-
-For example:
+This gives the runtime two levels of resilience:
 
 ```text
-TaskGraph:
+Retry
+  │
+  └── recover transient failures on the same node
 
-A → B → C
+Failover
+  │
+  └── recover by using another capable node
 ```
-
-does not change during execution.
-
-But:
-
-```text
-ExecutionState:
-
-A = completed
-B = running
-C = pending
-```
-
-changes continuously.
 
 ---
 
 ## Result vs Evaluation
 
-A result answers:
-
-> What did the node return?
-
-An evaluation answers:
-
-> Is that result acceptable?
-
-Therefore:
+Execution success does not imply semantic acceptance.
 
 ```text
-success = true
-```
-
-does not necessarily mean:
-
-```text
-accepted = true
-```
-
----
-
-## Executor vs ModelNode
-
-The executor controls execution mechanics.
-
-The node performs the actual work.
-
-```text
-Executor
-   │
-   ▼
 ModelNode
+    │
+    ▼
+Result
+success = true
+    │
+    ▼
+Evaluator
+    │
+    ▼
+Evaluation
+accepted = false
 ```
 
-This makes nodes replaceable resources rather than part of the orchestration logic.
+The node reports whether execution itself succeeded.
+
+The evaluator determines whether the produced result satisfies the required criteria.
+
+This distinction allows a successful execution to trigger replanning.
 
 ---
 
-# 23. A Complete Example
+## Replanning
 
-Imagine an objective requiring three pieces of information.
-
-The thinker creates:
+The high-level orchestration loop can therefore be:
 
 ```text
-Task A: gather requirements
-
-Task B: analyze constraints
-  depends on A
-
-Task C: produce recommendation
-  depends on A and B
-```
-
-The plan becomes:
-
-```text
-A
-│
-▼
-B
-│
-▼
-C
-```
-
-The planner might assign:
-
-```text
-A → local-model
-B → reasoning-model
-C → high-quality-model
-```
-
-The physical plan is therefore:
-
-```text
-A → local-model
-│
-▼
-B → reasoning-model
-│
-▼
-C → high-quality-model
-```
-
-Execution begins:
-
-```text
-A: pending
-B: pending
-C: pending
-```
-
-Then:
-
-```text
-A: running
-B: pending
-C: pending
-```
-
-After successful execution:
-
-```text
-A: completed
-B: pending
-C: pending
-```
-
-Now `B` becomes ready:
-
-```text
-A: completed
-B: running
-C: pending
-```
-
-Eventually:
-
-```text
-A: completed
-B: completed
-C: completed
-```
-
-The results are evaluated.
-
-If `C` is judged inadequate:
-
-```text
+Think
+ │
+ ▼
+Plan
+ │
+ ▼
+Execute
+ │
+ ▼
 Evaluate
-   │
-   ▼
-Rejected
-   │
-   ▼
-Thinker.replan()
+ │
+ ├── accepted ──► Synthesize
+ │
+ └── rejected ──► Replan
+                       │
+                       └──► Execute
 ```
 
-The thinker can create a stronger plan, potentially selecting a different model or adding additional tasks.
+The number of replanning attempts is bounded to prevent infinite execution loops.
 
 ---
 
-# 24. Current Architectural Principle
+## Runtime Introspection
 
-The most important principle in Pi Fabric is:
-
-> **Describe work independently from the resources used to perform it.**
-
-A task should not care which model executes it.
-
-A model should not care how the task was planned.
-
-The planner should not execute the task.
-
-The executor should not evaluate the result.
-
-The evaluator should not decide how the model works.
-
-The thinker should not need to know the details of node execution.
-
-This separation allows each layer to evolve independently.
-
----
-
-# 25. Current Status
-
-The current implementation includes:
-
-- Task model
-- Plan model
-- Physical plan
-- Model nodes
-- Node registry
-- Capability discovery
-- Execution requirements
-- Node selection
-- Scheduling policies
-- Planner
-- Executor
-- Retry handling
-- Plan executor
-- Task graph
-- DAG validation
-- Cycle detection
-- Dependency propagation
-- Concurrent execution
-- Execution state
-- Evaluation
-- Replanning
-- Fabric orchestration
-
-The test suite currently contains more than 100 passing tests and acts as the primary behavioral safety net for the architecture.
-
----
-
-# 26. Where We Go Next
-
-The next evolution should build on `ExecutionState`.
-
-Once execution lifecycle is explicit, the system can expose useful information such as:
+Execution is accompanied by explicit runtime information:
 
 ```text
-task-1   completed
-task-2   running
-task-3   pending
-task-4   blocked
-```
-
-That creates a foundation for:
-
-- execution events
-- progress reporting
-- metrics
-- tracing
-- debugging
-- DAG visualization
-- execution history
-- retry history
-- future scheduling decisions
-
-The important thing is that these capabilities can now be added **around the execution model** instead of being mixed into the core orchestration logic.
-
-```
-
-```
-
-## Execution Failure and Recovery
-
-Execution failures are handled at the `Executor` layer.
-
-The runtime distinguishes between **retrying a node** and **failing over to another node**.
-
-A retry occurs when the selected node fails but the configured `RetryPolicy` permits another attempt:
-
-```text
-Task
- │
- ▼
-Node A
- │
- ├── attempt 1 ──► failure
- │
- ├── attempt 2 ──► failure
- │
- └── attempt 3 ──► success
-```
-
-If the node exhausts its retry policy without succeeding, the executor marks that node as attempted and selects another capable node:
-
-```text
-Task
- │
- ▼
-Node A
- ├── attempt 1 ──► failure
- ├── attempt 2 ──► failure
- └── attempt 3 ──► failure
-                    │
-                    ▼
-                 Node B
-                    │
-                 attempt 1
-                    │
-                    ▼
-                  success
-```
-
-The responsibilities are intentionally separated:
-
-| Component      | Responsibility                                    |
-| -------------- | ------------------------------------------------- |
-| `RetryPolicy`  | Determines whether another attempt should be made |
-| `Executor`     | Performs retries and decides when to fail over    |
-| `NodeSelector` | Selects the best capable node                     |
-| `ModelNode`    | Performs the actual task execution                |
-
-This produces the following contract:
-
-> **Retry within the selected node first. Fail over only after that node's retry policy has been exhausted.**
-
-A node that eventually succeeds prevents failover to another node.
-
-If all capable nodes are exhausted, the executor returns the final failure result.
-
-### Explicit Node Execution
-
-`Executor.executeOn(task, nodeId)` represents targeted execution.
-
-It:
-
-- resolves the specified node
-- applies the retry policy
-- returns the resulting `Result`
-
-It does **not** perform node selection or failover.
-
-`Executor.execute(task)` is the higher-level operation responsible for:
-
-1. discovering capable nodes
-2. selecting a node
-3. executing with retries
-4. excluding exhausted nodes
-5. failing over to another capable node
-6. returning success or the final failure
-
-This distinction keeps targeted execution predictable while allowing normal execution to be resilient.
-
-### Execution Lifecycle
-
-`PlanExecutor` operates above `Executor`.
-
-Its responsibility is to coordinate tasks according to the dependency graph:
-
-```text
-PlanExecutor
-     │
-     ▼
- TaskGraph
-     │
-     ├── ready tasks
-     │
-     ▼
- Executor
-     │
-     ├── retry
-     ├── failover
-     └── Result
-     │
-     ▼
 ExecutionState
-     │
-     └── current lifecycle state
+    │
+    └── current state
 
 ExecutionHistory
-     │
-     └── chronological events
+    │
+    └── chronological events
+
+ExecutionSnapshot
+    │
+    └── aggregate state
+
+ExecutionMetrics
+    │
+    └── quantitative summary
+
+CriticalPath
+    │
+    └── dependency-chain analysis
 ```
 
-This separation means a node failure remains an execution concern, while dependency propagation remains a DAG orchestration concern.
+These components are deliberately separated from the execution algorithm.
 
-For example:
+The execution model therefore remains deterministic while consumers can inspect:
+
+- what is currently running
+- what has completed
+- what failed
+- what was blocked
+- how long tasks took
+- how often retries occurred
+- which dependency chain dominated execution
+
+---
+
+## Architectural Boundary
+
+The most important boundary in Pi Fabric is:
 
 ```text
-A ── failed
-│
-▼
-B ── blocked
+                    LOGICAL
+                      │
+              ┌───────▼───────┐
+              │    Thinker    │
+              └───────┬───────┘
+                      │
+                   Plan
+                      │
+              ┌───────▼───────┐
+              │    Planner    │
+              └───────┬───────┘
+                      │
+                  Physical
+                      │
+              ┌───────▼───────┐
+              │ PlanExecutor  │
+              └───────┬───────┘
+                      │
+                   Runtime
+                      │
+              ┌───────▼───────┐
+              │    Executor   │
+              └───────┬───────┘
+                      │
+                  Resource
+                      │
+              ┌───────▼───────┐
+              │   ModelNode   │
+              └───────────────┘
 ```
 
-`Executor` determines that `A` failed.
+Planning determines **what should happen**.
 
-`PlanExecutor` determines that `B` cannot execute because its dependency failed.
+Scheduling determines **where it should happen**.
 
-`ExecutionState` records `A` as `failed` and `B` as `blocked`.
+Execution determines **how it runs**.
 
-`ExecutionHistory` records the events that occurred during the execution.
+Evaluation determines **whether the result is acceptable**.
 
-This separation is a core architectural boundary in Pi Fabric.
+Observability determines **what can be understood about the run**.
+
+Keeping these boundaries explicit is what allows Pi Fabric to scale from a simple local runtime into a heterogeneous execution system without making individual models responsible for orchestration.
+
+```
+
+```
