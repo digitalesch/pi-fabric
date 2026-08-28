@@ -45,9 +45,7 @@ export class Fabric {
         evaluations,
       );
 
-      const accepted = evaluations.every((evaluation) => evaluation.accepted);
-
-      if (accepted) {
+      if (decision.accepted) {
         return this.thinker.synthesize(objective, results);
       }
 

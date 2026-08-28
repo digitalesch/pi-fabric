@@ -602,27 +602,33 @@ The test suite is the behavioral safety net for the architecture.
 
 Coverage currently includes:
 
-- task and plan modeling
-- node selection
-- scheduling policies
-- planning
-- execution
-- retries
-- node failover
-- dependency handling
-- DAG validation
-- cycle detection
-- concurrent execution
-- execution state
-- execution snapshots
-- execution history
-- retry history
-- execution metrics
-- critical-path analysis
-- evaluation
-- replanning
-- execution runs
-- fabric orchestration
+* task and plan modeling
+* node selection
+* scheduling policies
+* planning
+* execution
+* retries
+* node failover
+* dependency handling
+* DAG validation
+* cycle detection
+* concurrent execution
+* execution state
+* execution snapshots
+* execution history
+* retry history
+* execution metrics
+* critical-path analysis
+* execution diagnostics
+* execution inspection
+* execution timelines
+* evaluation
+* replanning
+* execution runs
+* Fabric orchestration
+* public API consumption
+* child-process transport
+* concurrent transport requests
 
 Run the full suite with:
 
@@ -630,9 +636,43 @@ Run the full suite with:
 npm test
 ```
 
-The current test suite contains **216 passing tests**.
+The current test suite contains **313 passing tests**.
 
 The number is intentionally tracked as an indicator of the growing behavioral contract rather than as a measure of implementation quality by itself.
+
+---
+
+## Package Usage
+
+Pi Fabric can be consumed as a normal npm package.
+
+After building the project:
+
+```bash
+npm run build
+npm pack
+```
+
+The resulting package exposes the public API through the package root:
+
+```ts
+import { createFabric } from 'pi-fabric';
+
+const fabric = createFabric();
+
+const result = await fabric.run({
+  description: 'Extract requirements for a CoreXY machine',
+});
+
+console.log(result);
+```
+
+The package exposes its compiled runtime through:
+
+* `dist/index.js` — runtime entry point
+* `dist/index.d.ts` — TypeScript declarations
+
+The package boundary is tested from an external consumer project to ensure that the published artifact can be installed and executed independently of the repository source tree.
 
 ---
 
@@ -640,62 +680,108 @@ The number is intentionally tracked as an indicator of the growing behavioral co
 
 The major runtime pieces currently in place are:
 
-- [x] Task model
-- [x] Plan model
-- [x] Physical plan
-- [x] Model nodes
-- [x] Node registry
-- [x] Capability model
-- [x] Execution requirements
-- [x] Node selection
-- [x] Quality-first scheduling policy
-- [x] Planner
-- [x] Executor
-- [x] Retry policy
-- [x] Node failover
-- [x] Plan executor
-- [x] DAG dependency handling
-- [x] Task graph validation
-- [x] Cycle detection
-- [x] Concurrent execution
-- [x] Plan validation
-- [x] Execution state
-- [x] Execution snapshot
-- [x] Execution history
-- [x] Execution event recording
-- [x] Retry event recording
-- [x] Execution metrics
-- [x] Critical-path analysis
-- [x] Evaluator
-- [x] Thinker interface
-- [x] Evaluation/replanning loop
-- [x] Fabric orchestration
-- [x] Runtime test coverage
+* [x] Task model
+* [x] Plan model
+* [x] Physical plan
+* [x] Model nodes
+* [x] Node registry
+* [x] Capability model
+* [x] Execution requirements
+* [x] Node selection
+* [x] Quality-first scheduling policy
+* [x] Planner
+* [x] Executor
+* [x] Retry policy
+* [x] Node failover
+* [x] Plan executor
+* [x] DAG dependency handling
+* [x] Task graph validation
+* [x] Cycle detection
+* [x] Concurrent execution
+* [x] Plan validation
+* [x] Execution state
+* [x] Execution snapshot
+* [x] Execution history
+* [x] Execution event recording
+* [x] Retry event recording
+* [x] Execution metrics
+* [x] Execution timeline
+* [x] Execution diagnostics
+* [x] Execution inspection
+* [x] Critical-path analysis
+* [x] Evaluator
+* [x] Thinker interface
+* [x] Evaluation/replanning loop
+* [x] Fabric orchestration
+* [x] In-process transport
+* [x] Child-process transport
+* [x] Public package API
+* [x] External consumer test
+* [x] Runtime test coverage
 
 ---
 
 ## Next
 
-The next architectural focus is **observability and execution introspection**.
+The core execution architecture is now established.
 
-The runtime now has the foundations for:
+The next architectural focus is **making the runtime genuinely useful with real model nodes**.
 
-- execution timelines
-- progress reporting
-- task duration metrics
-- critical-path analysis
-- execution tracing
-- debugging tools
-- DAG visualization
-- retry analysis
-- richer scheduling decisions
+The current implementation proves the orchestration model using fake and deterministic execution resources. The next stage should move from:
 
-The goal is to make the fabric not only capable of executing a plan, but capable of explaining:
-
-> **What is it doing? Why is it doing it? What happened at each stage?**
-
-Pi Fabric should evolve toward an execution system where planning, execution, evaluation, and observation remain distinct but work together as a coherent runtime.
-
+```text
+Objective
+   │
+   ▼
+Thinker
+   │
+   ▼
+Plan
+   │
+   ▼
+Scheduler
+   │
+   ▼
+Execution
+   │
+   ▼
+Evaluation
 ```
 
+toward a real heterogeneous model fabric:
+
+```text
+                    ┌── Local Model
+                    │
+Objective → Thinker ├── Remote Model API
+                    │
+                    ├── Specialized Model
+                    │
+                    └── Deterministic Tool
+                              │
+                              ▼
+                         Model Nodes
+                              │
+                              ▼
+                          Evaluator
+                              │
+                              ▼
+                       Replan / Synthesize
 ```
+
+The immediate goals are:
+
+* real inference-provider integration
+* configurable model nodes
+* explicit node configuration
+* cost-aware scheduling
+* richer evaluation and feedback
+* production-oriented transport
+* runtime configuration
+* improved public API ergonomics
+
+The architectural goal remains the same:
+
+> **Pi Fabric should decide what work needs to happen, determine where that work should execute, execute it, evaluate the result, and adapt when necessary.**
+
+Observability is no longer merely a future concept; the runtime already contains the foundations required to inspect and analyze executions. The next step is to connect those capabilities to real heterogeneous execution resources.

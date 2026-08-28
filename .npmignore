@@ -1,0 +1,9 @@
+src/
+tests/
+pi/
+docs/
+tsconfig.json
+tsconfig.build.json
+.prettierignore
+.prettierrc
+.gitignore

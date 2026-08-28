@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { resolve } from 'node:path';
 
 import { ChildProcessTransport } from '../../src/transport/child-process.js';
+
+const workerPath = resolve(process.cwd(), 'dist', 'worker', 'main.js');
 
 describe('ChildProcessTransport', () => {
   const transports: ChildProcessTransport[] = [];
@@ -14,9 +17,7 @@ describe('ChildProcessTransport', () => {
   });
 
   it('executes a task in a separate worker process', async () => {
-    const transport = new ChildProcessTransport(process.execPath, [
-      'dist/src/worker/main.js',
-    ]);
+    const transport = new ChildProcessTransport(process.execPath, [workerPath]);
 
     transports.push(transport);
 
@@ -47,9 +48,7 @@ describe('ChildProcessTransport', () => {
   });
 
   it('correlates concurrent requests', async () => {
-    const transport = new ChildProcessTransport(process.execPath, [
-      'dist/src/worker/main.js',
-    ]);
+    const transport = new ChildProcessTransport(process.execPath, [workerPath]);
 
     transports.push(transport);
 
