@@ -25,10 +25,7 @@ export class NeedleProvider implements InferenceProvider {
       process.env.PI_FABRIC_NEEDLE_WORKER ??
       'src/worker/needle_worker.py';
 
-    this.transport = new ChildProcessTransport(
-      python,
-      [worker],
-    );
+    this.transport = new ChildProcessTransport(python, [worker]);
   }
 
   async execute(request: InferenceRequest): Promise<InferenceResponse> {

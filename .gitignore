@@ -1,2 +1,13 @@
 node_modules/*
 dist/*
+
+# Python virtual environments
+.needle-venv/
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class

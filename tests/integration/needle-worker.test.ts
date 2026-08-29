@@ -14,10 +14,9 @@ describe('Needle worker integration', () => {
   });
 
   it('executes structured extraction through the Needle worker', async () => {
-    const transport = new ChildProcessTransport(
-  '.needle-venv/bin/python',
-  ['src/worker/needle_worker.py'],
-);
+    const transport = new ChildProcessTransport('.needle-venv/bin/python', [
+      'src/worker/needle_worker.py',
+    ]);
 
     transports.push(transport);
 
@@ -38,17 +37,17 @@ describe('Needle worker integration', () => {
       },
 
       outputSchema: {
-  type: 'object',
-  properties: {
-    requirements: {
-      type: 'array',
-      items: {
-        type: 'string',
+        type: 'object',
+        properties: {
+          requirements: {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+          },
+        },
+        required: ['requirements'],
       },
-    },
-  },
-  required: ['requirements'],
-},
     });
 
     expect(response.success, JSON.stringify(response, null, 2)).toBe(true);

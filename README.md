@@ -602,33 +602,33 @@ The test suite is the behavioral safety net for the architecture.
 
 Coverage currently includes:
 
-* task and plan modeling
-* node selection
-* scheduling policies
-* planning
-* execution
-* retries
-* node failover
-* dependency handling
-* DAG validation
-* cycle detection
-* concurrent execution
-* execution state
-* execution snapshots
-* execution history
-* retry history
-* execution metrics
-* critical-path analysis
-* execution diagnostics
-* execution inspection
-* execution timelines
-* evaluation
-* replanning
-* execution runs
-* Fabric orchestration
-* public API consumption
-* child-process transport
-* concurrent transport requests
+- task and plan modeling
+- node selection
+- scheduling policies
+- planning
+- execution
+- retries
+- node failover
+- dependency handling
+- DAG validation
+- cycle detection
+- concurrent execution
+- execution state
+- execution snapshots
+- execution history
+- retry history
+- execution metrics
+- critical-path analysis
+- execution diagnostics
+- execution inspection
+- execution timelines
+- evaluation
+- replanning
+- execution runs
+- Fabric orchestration
+- public API consumption
+- child-process transport
+- concurrent transport requests
 
 Run the full suite with:
 
@@ -669,8 +669,8 @@ console.log(result);
 
 The package exposes its compiled runtime through:
 
-* `dist/index.js` — runtime entry point
-* `dist/index.d.ts` — TypeScript declarations
+- `dist/index.js` — runtime entry point
+- `dist/index.d.ts` — TypeScript declarations
 
 The package boundary is tested from an external consumer project to ensure that the published artifact can be installed and executed independently of the repository source tree.
 
@@ -680,44 +680,44 @@ The package boundary is tested from an external consumer project to ensure that 
 
 The major runtime pieces currently in place are:
 
-* [x] Task model
-* [x] Plan model
-* [x] Physical plan
-* [x] Model nodes
-* [x] Node registry
-* [x] Capability model
-* [x] Execution requirements
-* [x] Node selection
-* [x] Quality-first scheduling policy
-* [x] Planner
-* [x] Executor
-* [x] Retry policy
-* [x] Node failover
-* [x] Plan executor
-* [x] DAG dependency handling
-* [x] Task graph validation
-* [x] Cycle detection
-* [x] Concurrent execution
-* [x] Plan validation
-* [x] Execution state
-* [x] Execution snapshot
-* [x] Execution history
-* [x] Execution event recording
-* [x] Retry event recording
-* [x] Execution metrics
-* [x] Execution timeline
-* [x] Execution diagnostics
-* [x] Execution inspection
-* [x] Critical-path analysis
-* [x] Evaluator
-* [x] Thinker interface
-* [x] Evaluation/replanning loop
-* [x] Fabric orchestration
-* [x] In-process transport
-* [x] Child-process transport
-* [x] Public package API
-* [x] External consumer test
-* [x] Runtime test coverage
+- [x] Task model
+- [x] Plan model
+- [x] Physical plan
+- [x] Model nodes
+- [x] Node registry
+- [x] Capability model
+- [x] Execution requirements
+- [x] Node selection
+- [x] Quality-first scheduling policy
+- [x] Planner
+- [x] Executor
+- [x] Retry policy
+- [x] Node failover
+- [x] Plan executor
+- [x] DAG dependency handling
+- [x] Task graph validation
+- [x] Cycle detection
+- [x] Concurrent execution
+- [x] Plan validation
+- [x] Execution state
+- [x] Execution snapshot
+- [x] Execution history
+- [x] Execution event recording
+- [x] Retry event recording
+- [x] Execution metrics
+- [x] Execution timeline
+- [x] Execution diagnostics
+- [x] Execution inspection
+- [x] Critical-path analysis
+- [x] Evaluator
+- [x] Thinker interface
+- [x] Evaluation/replanning loop
+- [x] Fabric orchestration
+- [x] In-process transport
+- [x] Child-process transport
+- [x] Public package API
+- [x] External consumer test
+- [x] Runtime test coverage
 
 ---
 
@@ -771,14 +771,14 @@ Objective → Thinker ├── Remote Model API
 
 The immediate goals are:
 
-* real inference-provider integration
-* configurable model nodes
-* explicit node configuration
-* cost-aware scheduling
-* richer evaluation and feedback
-* production-oriented transport
-* runtime configuration
-* improved public API ergonomics
+- real inference-provider integration
+- configurable model nodes
+- explicit node configuration
+- cost-aware scheduling
+- richer evaluation and feedback
+- production-oriented transport
+- runtime configuration
+- improved public API ergonomics
 
 The architectural goal remains the same:
 

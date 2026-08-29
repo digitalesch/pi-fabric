@@ -1,6 +1,8 @@
 import { extractRequirements } from './core/aspects/extract-requirements.js';
 
 import { FakeInferenceProvider } from './inference/fake.js';
+import { NeedleProvider } from './inference/needle.js';
+import type { InferenceProvider } from './inference/provider.js';
 
 import { InferenceNode } from './nodes/inference-node.js';
 
@@ -19,12 +21,16 @@ import { InProcessTransport } from './transport/in-process.js';
 import { PlanValidator } from './runtime/plan-validator.js';
 import { BasicEvaluator } from './evaluation/basic.js';
 
-export function createFabric(): Fabric {
+export interface CreateFabricOptions {
+  provider?: InferenceProvider;
+}
+
+export function createFabric(options: CreateFabricOptions = {}): Fabric {
   const aspectRegistry = new AspectRegistry();
 
   aspectRegistry.register(extractRequirements);
 
-  const provider = new FakeInferenceProvider();
+  const provider = options.provider ?? new FakeInferenceProvider();
 
   const transport = new InProcessTransport(provider);
 
@@ -36,13 +42,9 @@ export function createFabric(): Fabric {
       [
         {
           aspect: 'extract_requirements',
-
           quality: 0.8,
-
           contextWindow: 4096,
-
           local: true,
-
           latencyMs: 1,
         },
       ],
@@ -59,9 +61,7 @@ export function createFabric(): Fabric {
   const planner = new Planner(nodeRegistry, selector);
 
   const thinker = new FakeThinker();
-
   const planValidator = new PlanValidator();
-
   const evaluator = new BasicEvaluator();
 
   return new Fabric(
