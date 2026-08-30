@@ -13,8 +13,142 @@ import { CountingFailingNode } from '../helpers/counting-failing-node.js';
 import { TestRetryPolicy } from '../helpers/test-retry-policy.js';
 import { RecordingRetryPolicy } from '../helpers/record-retry-policy.js';
 import { FailThenSucceedNode } from '../helpers/fail-then-succeed-node.js';
+import { InferenceNode } from '../../src/index.js';
+import { Task } from '../../src/index.js';
+import { InProcessTransport } from '../../src/transport/in-process.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 describe('Executor', () => {
+  const task: Task = {
+    id: 'task-1',
+    aspect: 'extract_requirements',
+    input: {
+      document: 'CoreXY machine',
+    },
+    context: {
+      facts: {},
+      constraints: [],
+      assumptions: [],
+      references: [],
+    },
+    outputSchema: {
+      type: 'object',
+    },
+    dependencies: [],
+    requirements: {},
+  };
+
+  it('executes a task on the explicitly selected node', async () => {
+    const registry = new NodeRegistry();
+
+    const fakeNode = new InferenceNode(
+      'fake-local',
+      'fake',
+      [
+        {
+          aspect: 'extract_requirements',
+          quality: 0.5,
+          contextWindow: 4096,
+          local: true,
+          latencyMs: 1,
+        },
+      ],
+      new InProcessTransport({
+        id: 'fake',
+        async execute() {
+          return {
+            success: true,
+            output: {
+              requirements: ['fake'],
+            },
+            metadata: {
+              model: 'fake-model',
+            },
+          };
+        },
+      }),
+    );
+
+    registry.register(fakeNode);
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+    );
+
+    const performanceRegistry =
+      new PerformanceRegistry();
+
+    const executor = new Executor(
+      registry,
+      selector,
+      undefined,
+      performanceRegistry,
+    );
+
+    const result = await executor.executeOn(
+      task,
+      'fake-local',
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.metadata.nodeId).toBe('fake-local');
+    expect(result.metadata.provider).toBe('fake');
+
+    const profile = performanceRegistry.profile(
+      'fake',
+      'extract_requirements',
+    );
+
+    expect(profile.executions).toBe(1);
+    expect(profile.successRate).toBe(1);
+  });
+
+  it('selects a node when executing a logical task', async () => {
+    const registry = new NodeRegistry();
+
+    registry.register(
+      new InferenceNode(
+        'fake-local',
+        'fake',
+        [
+          {
+            aspect: 'extract_requirements',
+            quality: 0.8,
+            contextWindow: 4096,
+            local: true,
+            latencyMs: 1,
+          },
+        ],
+        new InProcessTransport({
+          id: 'fake',
+          async execute() {
+            return {
+              success: true,
+              output: {},
+              metadata: {
+                model: 'fake-model',
+              },
+            };
+          },
+        }),
+      ),
+    );
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+    );
+
+    const executor = new Executor(
+      registry,
+      selector,
+    );
+
+    const result = await executor.execute(task);
+
+    expect(result.success).toBe(true);
+    expect(result.metadata.nodeId).toBe('fake-local');
+  });
+
   it('returns the final failure when all nodes are exhausted', async () => {
     const registry = new NodeRegistry();
 

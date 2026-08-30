@@ -13,9 +13,11 @@ import { NodeSelector } from '../../src/runtime/node-selector.js';
 import { PlanExecutor } from '../../src/runtime/plan-executor.js';
 import { PlanValidator } from '../../src/runtime/plan-validator.js';
 import { Planner } from '../../src/runtime/planner.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js';
 import { NodeRegistry } from '../../src/runtime/registry.js';
 import { FakeThinker } from '../../src/thinker/fake.js';
+import { InferenceProvider } from '../../src/inference/provider.js';
 
 function createTestFabric(): Fabric {
   const aspectRegistry = new AspectRegistry();
@@ -28,6 +30,7 @@ function createTestFabric(): Fabric {
 
   nodeRegistry.register(
     new InferenceNode(
+      'local',
       'local-test',
       [
         {
@@ -43,12 +46,22 @@ function createTestFabric(): Fabric {
   );
 
   const selector = new NodeSelector(new QualityFirstPolicy());
-  const executor = new Executor(nodeRegistry, selector);
+
+  const performanceRegistry = new PerformanceRegistry();
+
+  const executor = new Executor(
+    nodeRegistry,
+    selector,
+    undefined,
+    performanceRegistry,
+  );
+
   const planExecutor = new PlanExecutor(executor);
   const planner = new Planner(nodeRegistry, selector);
   const thinker = new FakeThinker();
   const planValidator = new PlanValidator();
   const evaluator = new BasicEvaluator();
+  const providers: InferenceProvider[] = [provider];
 
   return new Fabric(
     thinker,
@@ -57,8 +70,12 @@ function createTestFabric(): Fabric {
     aspectRegistry,
     planValidator,
     evaluator,
+    3,
+    providers,
+    performanceRegistry,
   );
 }
+
 
 describe('Fabric', () => {
   it('executes an objective through the full orchestration pipeline', async () => {

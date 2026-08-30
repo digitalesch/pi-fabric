@@ -8,6 +8,7 @@ import type { ModelNode } from './node.js';
 export class InferenceNode implements ModelNode {
   constructor(
     public readonly id: string,
+    public readonly providerId: string,
     private readonly nodeCapabilities: Capability[],
     private readonly transport: Transport,
   ) {}
@@ -25,7 +26,13 @@ export class InferenceNode implements ModelNode {
       outputSchema: task.outputSchema,
     };
 
+    const startedAt = Date.now();
+
     const response = await this.transport.send(request);
+
+    const latencyMs =
+      response.metadata?.latencyMs ??
+      Date.now() - startedAt;
 
     return {
       taskId: task.id,
@@ -34,7 +41,14 @@ export class InferenceNode implements ModelNode {
       metadata: {
         nodeId: this.id,
         ...response.metadata,
+        provider: this.providerId,
+        latencyMs,
       },
+      ...(response.error
+        ? {
+            error: response.error,
+          }
+        : {}),
     };
   }
 }

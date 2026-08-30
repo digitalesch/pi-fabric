@@ -12,6 +12,7 @@ describe('Provider routing', () => {
 
     const node = new InferenceNode(
       `${fakeProvider.id}-inference`,
+      'fake',
       [
         {
           aspect: 'extract_requirements',
@@ -39,6 +40,7 @@ describe('Provider routing', () => {
   it('selects the highest-quality provider node', () => {
     const lowQuality = new InferenceNode(
       'low-quality',
+      'fake',
       [
         {
           aspect: 'extract_requirements',
@@ -57,6 +59,7 @@ describe('Provider routing', () => {
 
     const highQuality = new InferenceNode(
       'high-quality',
+      'fake',
       [
         {
           aspect: 'extract_requirements',

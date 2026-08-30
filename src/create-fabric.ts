@@ -20,6 +20,7 @@ import { BasicEvaluator } from './evaluation/basic.js';
 import { FakeThinker } from './thinker/fake.js';
 
 import { InProcessTransport } from './transport/in-process.js';
+import { PerformanceRegistry } from './runtime/performance-registry.js';
 
 export interface FabricOptions {
   providers?: InferenceProvider[];
@@ -29,18 +30,19 @@ export function createInferenceNode(
   provider: InferenceProvider,
 ): InferenceNode {
   return new InferenceNode(
-    `${provider.id}-inference`,
-    [
-      {
-        aspect: 'extract_requirements',
-        quality: provider.id === 'needle' ? 0.95 : 0.8,
-        contextWindow: 4096,
-        local: true,
-        latencyMs: provider.id === 'needle' ? 400 : 1,
-      },
-    ],
-    new InProcessTransport(provider),
-  );
+  `${provider.id}-inference`,
+  provider.id,
+  [
+    {
+      aspect: 'extract_requirements',
+      quality: provider.id === 'needle' ? 0.95 : 0.8,
+      contextWindow: 4096,
+      local: true,
+      latencyMs: provider.id === 'needle' ? 400 : 1,
+    },
+  ],
+  new InProcessTransport(provider),
+);
 }
 
 export function createFabric(options: FabricOptions = {}): Fabric {
@@ -56,9 +58,16 @@ export function createFabric(options: FabricOptions = {}): Fabric {
     nodeRegistry.register(createInferenceNode(provider));
   }
 
+  const performanceRegistry = new PerformanceRegistry();
+
   const selector = new NodeSelector(new QualityFirstPolicy());
 
-  const executor = new Executor(nodeRegistry, selector);
+  const executor = new Executor(
+    nodeRegistry,
+    selector,
+    undefined,
+    performanceRegistry,
+  );
 
   const planExecutor = new PlanExecutor(executor);
 
@@ -81,5 +90,6 @@ export function createFabric(options: FabricOptions = {}): Fabric {
     evaluator,
     maxAttempts,
     providers,
+    performanceRegistry,
   );
 }

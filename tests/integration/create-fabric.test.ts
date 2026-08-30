@@ -2,8 +2,52 @@ import { describe, expect, it } from 'vitest';
 
 import { createFabric, type FabricOptions } from '../../src/create-fabric.js';
 import { NeedleProvider } from '../../src/inference/needle.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 describe('createFabric', () => {
+  it('records performance for configured providers', async () => {
+    const provider = new NeedleProvider();
+
+    const fabric = createFabric({
+      providers: [provider],
+    });
+
+    try {
+      await fabric.run({
+        description: 'Extract requirements for a CoreXY machine',
+      });
+
+      const profile = fabric
+        .getPerformanceRegistry()
+        .profile('needle', 'extract_requirements');
+
+      expect(profile.executions).toBe(1);
+      expect(profile.successRate).toBe(1);
+      expect(profile.averageLatencyMs).toBeGreaterThan(0);
+    } finally {
+      await fabric.close();
+    }
+  });
+
+  it('exposes performance history', async () => {
+    const fabric = createFabric();
+
+    try {
+      await fabric.run({
+        description: 'Extract requirements for a CoreXY machine',
+      });
+
+      const registry = fabric.getPerformanceRegistry();
+
+      const profile = registry.profile('fake', 'extract_requirements');
+
+      expect(profile.executions).toBe(1);
+      expect(profile.successRate).toBe(1);
+    } finally {
+      await fabric.close();
+    }
+  });
+
   it('uses the fake inference backend by default', async () => {
     const fabric = createFabric();
 

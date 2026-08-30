@@ -27,6 +27,7 @@ describe('Needle InferenceNode', () => {
 
     const node = new InferenceNode(
       'needle-local',
+      'needle',
       [
         {
           aspect: 'extract_requirements',

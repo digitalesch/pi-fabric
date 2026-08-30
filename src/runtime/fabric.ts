@@ -6,6 +6,7 @@ import { Planner } from './planner.js';
 import { PlanValidator } from './plan-validator.js';
 import { Evaluator } from '../evaluation/evaluator.js';
 import type { InferenceProvider } from '../inference/provider.js';
+import { PerformanceRegistry } from './performance-registry.js';
 
 export class Fabric {
   constructor(
@@ -17,10 +18,15 @@ export class Fabric {
     private readonly evaluator: Evaluator,
     private readonly maxAttempts = 3,
     private readonly providers: InferenceProvider[] = [],
+    private readonly performanceRegistry: PerformanceRegistry,
   ) {
     if (!Number.isInteger(maxAttempts) || maxAttempts <= 0) {
       throw new Error('maxAttempts must be a positive integer');
     }
+  }
+
+  getPerformanceRegistry(): PerformanceRegistry {
+    return this.performanceRegistry;
   }
 
   async run(objective: Objective): Promise<string> {

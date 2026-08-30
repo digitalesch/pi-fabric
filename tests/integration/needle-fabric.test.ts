@@ -1,18 +1,20 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { BasicEvaluator } from '../../src/evaluation/basic.js';
 import { extractRequirements } from '../../src/core/aspects/extract-requirements.js';
+import type { InferenceProvider } from '../../src/inference/provider.js';
 import { NeedleProvider } from '../../src/inference/needle.js';
 import { InferenceNode } from '../../src/nodes/inference-node.js';
 import { AspectRegistry } from '../../src/runtime/aspect-registry.js';
 import { Executor } from '../../src/runtime/executor.js';
 import { Fabric } from '../../src/runtime/fabric.js';
 import { NodeSelector } from '../../src/runtime/node-selector.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 import { PlanExecutor } from '../../src/runtime/plan-executor.js';
 import { PlanValidator } from '../../src/runtime/plan-validator.js';
 import { Planner } from '../../src/runtime/planner.js';
-import { NodeRegistry } from '../../src/runtime/registry.js';
 import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js';
-import { BasicEvaluator } from '../../src/evaluation/basic.js';
+import { NodeRegistry } from '../../src/runtime/registry.js';
 import { FakeThinker } from '../../src/thinker/fake.js';
 import { InProcessTransport } from '../../src/transport/in-process.js';
 
@@ -29,7 +31,6 @@ describe('Needle Fabric integration', () => {
 
   it('runs an objective through the complete Fabric pipeline using Needle', async () => {
     const provider = new NeedleProvider();
-
     providers.push(provider);
 
     const transport = new InProcessTransport(provider);
@@ -38,6 +39,7 @@ describe('Needle Fabric integration', () => {
 
     nodeRegistry.register(
       new InferenceNode(
+        'needle',
         'needle-local',
         [
           {
@@ -54,21 +56,26 @@ describe('Needle Fabric integration', () => {
 
     const selector = new NodeSelector(new QualityFirstPolicy());
 
-    const executor = new Executor(nodeRegistry, selector);
+    const performanceRegistry = new PerformanceRegistry();
+
+    const executor = new Executor(
+      nodeRegistry,
+      selector,
+      undefined,
+      performanceRegistry,
+    );
 
     const planExecutor = new PlanExecutor(executor);
-
     const planner = new Planner(nodeRegistry, selector);
 
     const aspectRegistry = new AspectRegistry();
-
     aspectRegistry.register(extractRequirements);
 
     const thinker = new FakeThinker();
-
     const planValidator = new PlanValidator();
-
     const evaluator = new BasicEvaluator();
+
+    const inferenceProviders: InferenceProvider[] = [provider];
 
     const fabric = new Fabric(
       thinker,
@@ -77,6 +84,9 @@ describe('Needle Fabric integration', () => {
       aspectRegistry,
       planValidator,
       evaluator,
+      3,
+      inferenceProviders,
+      performanceRegistry,
     );
 
     const result = await fabric.run({

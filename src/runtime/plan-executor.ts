@@ -117,6 +117,9 @@ export class PlanExecutor {
             nodeId: physicalTask.nodeId,
           });
 
+          // The physical plan has already selected the node.
+// Do not call executor.execute(), because that would perform
+// node selection again.
           const result = await this.executor.executeOn(
             task,
             physicalTask.nodeId,
