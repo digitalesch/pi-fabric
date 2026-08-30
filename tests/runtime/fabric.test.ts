@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createFabric } from '../../src/create-fabric.js';
+import { FakeInferenceProvider } from '../../src/inference/fake.js';
 
 import type { Evaluator, Evaluation } from '../../src/evaluation/evaluator.js';
 import type { EvaluationDecision } from '../../src/core/evaluation-decision.js';
@@ -345,41 +346,21 @@ class ReplanningThinker implements Thinker {
   }
 }
 
-// class RecordingNode implements ModelNode {
-//   public receivedTasks: Task[] = [];
-
-//   constructor(
-//     public readonly id: string,
-//     private readonly capability: Capability = {
-//       aspect: 'extract_requirements',
-//       quality: 0.8,
-//       contextWindow: 8192,
-//       local: true,
-//     },
-//   ) {}
-
-//   capabilities(): Capability[] {
-//     return [this.capability];
-//   }
-
-//   async execute(task: Task): Promise<Result> {
-//     this.receivedTasks.push(task);
-
-//     return {
-//       taskId: task.id,
-//       success: true,
-//       output: {
-//         requirements: ['test requirement'],
-//         executedBy: this.id,
-//       },
-//       metadata: {
-//         nodeId: this.id,
-//       },
-//     };
-//   }
-// }
-
 describe('Fabric', () => {
+  it('closes configured providers', async () => {
+    const provider = new FakeInferenceProvider();
+
+    const fabric = createFabric({
+      providers: [provider],
+    });
+
+    expect(provider.closed).toBe(false);
+
+    await fabric.close();
+
+    expect(provider.closed).toBe(true);
+  });
+
   it('replans with stronger requirements after evaluation failure', async () => {
     const lowQualityNode = new RecordingNode('low-quality', {
       aspect: 'extract_requirements',

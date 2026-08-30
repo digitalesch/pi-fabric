@@ -5,6 +5,7 @@ import { PlanExecutor } from './plan-executor.js';
 import { Planner } from './planner.js';
 import { PlanValidator } from './plan-validator.js';
 import { Evaluator } from '../evaluation/evaluator.js';
+import type { InferenceProvider } from '../inference/provider.js';
 
 export class Fabric {
   constructor(
@@ -15,6 +16,7 @@ export class Fabric {
     private readonly planValidator: PlanValidator,
     private readonly evaluator: Evaluator,
     private readonly maxAttempts = 3,
+    private readonly providers: InferenceProvider[] = [],
   ) {
     if (!Number.isInteger(maxAttempts) || maxAttempts <= 0) {
       throw new Error('maxAttempts must be a positive integer');
@@ -59,5 +61,9 @@ export class Fabric {
     }
 
     throw new Error('Unreachable');
+  }
+
+  async close(): Promise<void> {
+    await Promise.all(this.providers.map((provider) => provider.close?.()));
   }
 }

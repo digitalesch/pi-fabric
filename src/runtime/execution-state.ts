@@ -10,6 +10,8 @@ export class ExecutionState {
   private readonly executions = new Map<string, TaskExecution>();
 
   initialize(tasks: Task[]): void {
+    this.executions.clear();
+
     for (const task of tasks) {
       if (this.executions.has(task.id)) {
         throw new Error(`Duplicate task ID: ${task.id}`);

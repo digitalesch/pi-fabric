@@ -42,6 +42,31 @@ const failureResult = (taskId: string): Result => ({
 });
 
 describe('ExecutionState', () => {
+  it('resets state when initialized for a new execution', () => {
+    const state = new ExecutionState();
+
+    const firstTask = createTask('first');
+
+    state.initialize([firstTask]);
+    state.start('first');
+    state.complete('first', {
+      taskId: 'first',
+      success: true,
+      output: {},
+      metadata: {
+        nodeId: 'test-node',
+      },
+    });
+
+    const secondTask = createTask('second');
+
+    state.initialize([secondTask]);
+
+    expect(state.has('first')).toBe(false);
+    expect(state.has('second')).toBe(true);
+    expect(state.get('second').status).toBe('pending');
+  });
+
   it('initializes tasks as pending', () => {
     const state = new ExecutionState();
 

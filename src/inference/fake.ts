@@ -6,25 +6,26 @@ export class FakeInferenceProvider implements InferenceProvider {
   readonly id = 'fake';
 
   public lastRequest?: InferenceRequest;
+  public closed = false;
 
   async execute(request: InferenceRequest): Promise<InferenceResponse> {
     this.lastRequest = request;
 
     return {
       success: true,
-
       output: {
         aspect: request.aspect,
-
         inputReceived: request.input,
-
         message: `Worker executed ${request.aspect}`,
       },
-
       metadata: {
         model: 'fake-model',
         latencyMs: 1,
       },
     };
+  }
+
+  async close(): Promise<void> {
+    this.closed = true;
   }
 }

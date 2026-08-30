@@ -5,4 +5,6 @@ export interface InferenceProvider {
   readonly id: string;
 
   execute(request: InferenceRequest): Promise<InferenceResponse>;
+
+  close?(): Promise<void>;
 }

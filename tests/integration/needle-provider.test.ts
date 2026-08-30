@@ -1,12 +1,23 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { NeedleProvider } from '../../src/inference/needle.js';
+import { createFabric } from '../../src/create-fabric.js';
 
 describe('NeedleProvider', () => {
   let provider: NeedleProvider | undefined;
 
   afterEach(async () => {
     await provider?.close();
+  });
+
+  it('closes the provider through Fabric', async () => {
+    const provider = new NeedleProvider();
+
+    const fabric = createFabric({
+      providers: [provider],
+    });
+
+    await fabric.close();
   });
 
   it('executes inference through Needle', async () => {

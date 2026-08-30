@@ -11,46 +11,50 @@ import { Executor } from './runtime/executor.js';
 import { Fabric } from './runtime/fabric.js';
 import { NodeSelector } from './runtime/node-selector.js';
 import { PlanExecutor } from './runtime/plan-executor.js';
+import { PlanValidator } from './runtime/plan-validator.js';
+import { Planner } from './runtime/planner.js';
 import { QualityFirstPolicy } from './runtime/policies/quality-first.js';
 import { NodeRegistry } from './runtime/registry.js';
-import { Planner } from './runtime/planner.js';
 
+import { BasicEvaluator } from './evaluation/basic.js';
 import { FakeThinker } from './thinker/fake.js';
 
 import { InProcessTransport } from './transport/in-process.js';
-import { PlanValidator } from './runtime/plan-validator.js';
-import { BasicEvaluator } from './evaluation/basic.js';
 
-export interface CreateFabricOptions {
-  provider?: InferenceProvider;
+export interface FabricOptions {
+  providers?: InferenceProvider[];
 }
 
-export function createFabric(options: CreateFabricOptions = {}): Fabric {
+export function createInferenceNode(
+  provider: InferenceProvider,
+): InferenceNode {
+  return new InferenceNode(
+    `${provider.id}-inference`,
+    [
+      {
+        aspect: 'extract_requirements',
+        quality: provider.id === 'needle' ? 0.95 : 0.8,
+        contextWindow: 4096,
+        local: true,
+        latencyMs: provider.id === 'needle' ? 400 : 1,
+      },
+    ],
+    new InProcessTransport(provider),
+  );
+}
+
+export function createFabric(options: FabricOptions = {}): Fabric {
   const aspectRegistry = new AspectRegistry();
 
   aspectRegistry.register(extractRequirements);
 
-  const provider = options.provider ?? new FakeInferenceProvider();
-
-  const transport = new InProcessTransport(provider);
+  const providers = options.providers ?? [new FakeInferenceProvider()];
 
   const nodeRegistry = new NodeRegistry();
 
-  nodeRegistry.register(
-    new InferenceNode(
-      'local-test',
-      [
-        {
-          aspect: 'extract_requirements',
-          quality: 0.8,
-          contextWindow: 4096,
-          local: true,
-          latencyMs: 1,
-        },
-      ],
-      transport,
-    ),
-  );
+  for (const provider of providers) {
+    nodeRegistry.register(createInferenceNode(provider));
+  }
 
   const selector = new NodeSelector(new QualityFirstPolicy());
 
@@ -61,8 +65,12 @@ export function createFabric(options: CreateFabricOptions = {}): Fabric {
   const planner = new Planner(nodeRegistry, selector);
 
   const thinker = new FakeThinker();
+
   const planValidator = new PlanValidator();
+
   const evaluator = new BasicEvaluator();
+
+  const maxAttempts = 3;
 
   return new Fabric(
     thinker,
@@ -71,5 +79,7 @@ export function createFabric(options: CreateFabricOptions = {}): Fabric {
     aspectRegistry,
     planValidator,
     evaluator,
+    maxAttempts,
+    providers,
   );
 }
