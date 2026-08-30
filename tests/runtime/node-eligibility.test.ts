@@ -9,7 +9,7 @@ import { NodeEligibility } from '../../src/runtime/node-eligibility.js';
 
 class TestNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly capability: Capability,
   ) {}
 

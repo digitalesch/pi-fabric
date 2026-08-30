@@ -11,7 +11,7 @@ import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js'
 
 class TestNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly quality: number,
   ) {}
 
@@ -32,7 +32,7 @@ class TestNode implements ModelNode {
       success: true,
       output: {},
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }
@@ -160,7 +160,7 @@ describe('HealthAwarePolicy', () => {
       status: 'healthy',
     });
 
-    expect(policy.select([low, medium, high], 'extract_requirements').id).toBe(
+    expect(policy.select([low, medium, high], 'extract_requirements').nodeId).toBe(
       'high',
     );
   });

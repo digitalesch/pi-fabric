@@ -95,7 +95,7 @@ describe('Executor', () => {
     expect(result.metadata.provider).toBe('fake');
 
     const profile = performanceRegistry.profile(
-      'fake',
+      'fake-local',
       'extract_requirements',
     );
 

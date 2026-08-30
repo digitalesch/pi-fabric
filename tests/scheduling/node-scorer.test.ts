@@ -25,7 +25,7 @@ const createTask = (): Task => ({
 
 class TestNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly quality = 1,
     private readonly nodeHealth?: NodeHealth,
   ) {}
@@ -47,7 +47,7 @@ class TestNode implements ModelNode {
       success: true,
       output: {},
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }
@@ -71,7 +71,7 @@ describe('DefaultNodeScorer', () => {
       }),
     );
 
-    expect(result.node.id).toBe('node');
+    expect(result.node.nodeId).toBe('node');
     expect(result.quality).toBe(1);
     expect(result.health).toBe(1);
     expect(result.load).toBe(0);
@@ -263,7 +263,7 @@ describe('DefaultNodeScorer', () => {
     const scorer = new DefaultNodeScorer();
 
     const node: ModelNode = {
-      id: 'node',
+      nodeId: 'node',
 
       capabilities() {
         return [

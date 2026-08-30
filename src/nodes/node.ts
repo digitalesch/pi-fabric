@@ -3,7 +3,7 @@ import type { Result } from '../core/result.js';
 import type { Task } from '../core/task.js';
 
 export interface ModelNode {
-  readonly id: string;
+  readonly nodeId: string;
 
   capabilities(): Capability[];
 

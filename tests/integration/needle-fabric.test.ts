@@ -39,8 +39,8 @@ describe('Needle Fabric integration', () => {
 
     nodeRegistry.register(
       new InferenceNode(
-        'needle',
         'needle-local',
+        'needle',
         [
           {
             aspect: 'extract_requirements',

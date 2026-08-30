@@ -1,15 +1,11 @@
 export interface PerformanceObservation {
-  provider: string;
+  nodeId: string;
   aspect: string;
-
   success: boolean;
-
   latencyMs?: number;
-
   evaluation?: {
     accepted: boolean;
-    score?: number;
+    score: number;
   };
-
   timestamp: number;
 }

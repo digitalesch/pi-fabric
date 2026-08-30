@@ -1,11 +1,12 @@
 export interface PerformanceProfile {
-  provider: string;
+  nodeId: string;
   aspect: string;
 
   executions: number;
   successes: number;
 
   successRate: number;
+  acceptanceRate?: number;
 
   averageLatencyMs?: number;
   averageQuality?: number;

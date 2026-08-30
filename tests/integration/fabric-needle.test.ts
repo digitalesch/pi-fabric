@@ -30,8 +30,8 @@ function createTestFabric(): Fabric {
 
   nodeRegistry.register(
     new InferenceNode(
-      'local',
       'local-test',
+      'local',
       [
         {
           aspect: 'extract_requirements',

@@ -9,7 +9,7 @@ export type DeterministicHandler = (task: Task) => unknown | Promise<unknown>;
 
 export class DeterministicNode implements ModelNode, NodeHealthProvider {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly handler: DeterministicHandler,
     private readonly nodeCapabilities: Capability[] = [],
   ) {}
@@ -35,7 +35,7 @@ export class DeterministicNode implements ModelNode, NodeHealthProvider {
         success: true,
         output,
         metadata: {
-          nodeId: this.id,
+          nodeId: this.nodeId,
         },
       };
     } catch (error) {
@@ -44,7 +44,7 @@ export class DeterministicNode implements ModelNode, NodeHealthProvider {
         success: false,
         output: null,
         metadata: {
-          nodeId: this.id,
+          nodeId: this.nodeId,
         },
         error: {
           code: 'DETERMINISTIC_NODE_FAILURE',

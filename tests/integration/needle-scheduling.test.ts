@@ -129,7 +129,7 @@ describe('Needle scheduling integration', () => {
     expect(results[0].metadata?.model).toBe('needle');
 
     const profile = performanceRegistry.profile(
-      'needle',
+      'needle-local',
       'extract_requirements',
     );
 

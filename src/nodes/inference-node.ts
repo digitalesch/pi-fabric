@@ -7,7 +7,7 @@ import type { ModelNode } from './node.js';
 
 export class InferenceNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     public readonly providerId: string,
     private readonly nodeCapabilities: Capability[],
     private readonly transport: Transport,
@@ -39,7 +39,7 @@ export class InferenceNode implements ModelNode {
       success: response.success,
       output: response.output,
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
         ...response.metadata,
         provider: this.providerId,
         latencyMs,

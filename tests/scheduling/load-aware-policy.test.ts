@@ -17,7 +17,7 @@ import type {
 
 class TestNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly quality = 1,
     private readonly nodeHealth?: NodeHealth,
   ) {}
@@ -43,7 +43,7 @@ class TestNode implements ModelNode {
       success: true,
       output: {},
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }
@@ -170,7 +170,7 @@ describe('LoadAwarePolicy', () => {
     const policy = new LoadAwarePolicy();
 
     const legacy: ModelNode = {
-      id: 'legacy',
+      nodeId: 'legacy',
 
       capabilities() {
         return [
@@ -231,9 +231,9 @@ describe('LoadAwarePolicy', () => {
     const scorer: NodeScorer = {
       score: vi.fn((node): NodeScore => ({
         node,
-        score: node.id === 'unavailable' ? 100 : 1,
+        score: node.nodeId === 'unavailable' ? 100 : 1,
         quality: 1,
-        health: node.id === 'unavailable' ? 0 : 1,
+        health: node.nodeId === 'unavailable' ? 0 : 1,
         load: 0,
       })),
     };

@@ -47,6 +47,7 @@ describe('TaskExecution', () => {
 
     expect(execution.status).toBe('completed');
     expect(execution.result?.success).toBe(true);
+    expect(execution.result?.metadata.nodeId).toBe('node-1');
     expect(execution.completedAt).toBe(200);
   });
 
@@ -70,6 +71,7 @@ describe('TaskExecution', () => {
 
     expect(execution.status).toBe('failed');
     expect(execution.result?.success).toBe(false);
+    expect(execution.result?.metadata.nodeId).toBe('node-1');
   });
 
   it('supports blocked execution without a result', () => {

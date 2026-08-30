@@ -1,10 +1,15 @@
 import type { ExecutionRequirements } from '../../core/execution-requirements.js';
 import type { ModelNode } from '../../nodes/node.js';
+
 import { NodeEligibility } from '../node-eligibility.js';
+import type { PerformanceRegistry } from '../performance-registry.js';
 import type { SchedulingPolicy } from '../scheduling-policy.js';
 
 export class QualityFirstPolicy implements SchedulingPolicy {
-  constructor(private readonly eligibility = new NodeEligibility()) {}
+  constructor(
+    private readonly eligibility = new NodeEligibility(),
+    private readonly performanceRegistry?: PerformanceRegistry,
+  ) {}
 
   select(
     nodes: ModelNode[],
@@ -16,29 +21,44 @@ export class QualityFirstPolicy implements SchedulingPolicy {
     );
 
     if (candidates.length === 0) {
-      throw new Error(`No node satisfies requirements for aspect: ${aspect}`);
+      throw new Error(
+        `No node satisfies requirements for aspect: ${aspect}`,
+      );
     }
 
     return candidates.reduce((best, current) => {
-      const bestCapability = best
-        .capabilities()
-        .find((capability) => capability.aspect === aspect);
+      const bestScore = this.score(best, aspect);
+      const currentScore = this.score(current, aspect);
 
-      const currentCapability = current
-        .capabilities()
-        .find((capability) => capability.aspect === aspect);
-
-      if (!bestCapability) {
-        return current;
-      }
-
-      if (!currentCapability) {
-        return best;
-      }
-
-      return currentCapability.quality > bestCapability.quality
-        ? current
-        : best;
+      return currentScore > bestScore ? current : best;
     });
+  }
+
+  private score(
+    node: ModelNode,
+    aspect: string,
+  ): number {
+    const capability = node
+      .capabilities()
+      .find((capability) => capability.aspect === aspect);
+
+    if (!capability) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    const observed = this.performanceRegistry?.profile(
+      node.nodeId,
+      aspect,
+    );
+
+    if (!observed || observed.executions === 0) {
+      return capability.quality;
+    }
+
+    return (
+      capability.quality * (1 - observed.confidence) +
+      (observed.averageQuality ?? capability.quality) *
+        observed.confidence
+    );
   }
 }

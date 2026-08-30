@@ -8,7 +8,7 @@ export class DelayedNode implements ModelNode {
   public maxActive = 0;
 
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly delayMs: number,
     private readonly events: string[],
   ) {}
@@ -34,7 +34,7 @@ export class DelayedNode implements ModelNode {
       success: true,
       output: task.id,
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }

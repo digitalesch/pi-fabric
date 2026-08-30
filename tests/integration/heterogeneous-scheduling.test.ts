@@ -13,7 +13,7 @@ import { NodeRegistry } from '../../src/runtime/registry.js';
 
 class TestNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly nodeCapabilities: Capability[],
     private readonly shouldFail = false,
   ) {}
@@ -29,11 +29,11 @@ class TestNode implements ModelNode {
         success: false,
         output: null,
         metadata: {
-          nodeId: this.id,
+          nodeId: this.nodeId,
         },
         error: {
           code: 'TEST_FAILURE',
-          message: `${this.id} failed`,
+          message: `${this.nodeId} failed`,
         },
       };
     }
@@ -42,10 +42,10 @@ class TestNode implements ModelNode {
       taskId: task.id,
       success: true,
       output: {
-        node: this.id,
+        node: this.nodeId,
       },
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }
@@ -100,7 +100,7 @@ describe('Heterogeneous node scheduling', () => {
       'extract_requirements',
     );
 
-    expect(selected.id).toBe('quality-node');
+    expect(selected.nodeId).toBe('quality-node');
   });
 
   it('filters out nodes below the minimum quality', () => {
@@ -122,7 +122,7 @@ describe('Heterogeneous node scheduling', () => {
       },
     );
 
-    expect(selected.id).toBe('quality-node');
+    expect(selected.nodeId).toBe('quality-node');
   });
 
   it('rejects nodes above the maximum latency', () => {
@@ -140,7 +140,7 @@ describe('Heterogeneous node scheduling', () => {
       maximumLatencyMs: 100,
     });
 
-    expect(selected.id).toBe('fast-node');
+    expect(selected.nodeId).toBe('fast-node');
   });
 
   it('combines quality and latency constraints', () => {
@@ -176,7 +176,7 @@ describe('Heterogeneous node scheduling', () => {
       },
     );
 
-    expect(selected.id).toBe('balanced');
+    expect(selected.nodeId).toBe('balanced');
   });
 
   it('rejects local-only requirements for remote nodes', () => {
@@ -200,7 +200,7 @@ describe('Heterogeneous node scheduling', () => {
       localOnly: true,
     });
 
-    expect(selected.id).toBe('local-node');
+    expect(selected.nodeId).toBe('local-node');
   });
 
   it('fails when no node satisfies the requirements', () => {

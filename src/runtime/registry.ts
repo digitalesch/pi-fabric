@@ -4,11 +4,11 @@ export class NodeRegistry {
   private readonly nodes = new Map<string, ModelNode>();
 
   register(node: ModelNode): void {
-    this.nodes.set(node.id, node);
+    this.nodes.set(node.nodeId, node);
   }
 
-  get(id: string): ModelNode | undefined {
-    return this.nodes.get(id);
+  get(nodeId: string): ModelNode | undefined {
+    return this.nodes.get(nodeId);
   }
 
   findFor(aspect: string): ModelNode[] {

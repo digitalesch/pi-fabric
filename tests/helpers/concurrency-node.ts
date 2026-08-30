@@ -9,7 +9,7 @@ export class ConcurrencyNode implements ModelNode {
   public receivedTasks: Task[] = [];
 
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly delayMs = 10,
   ) {}
 
@@ -38,10 +38,10 @@ export class ConcurrencyNode implements ModelNode {
       taskId: task.id,
       success: true,
       output: {
-        executedBy: this.id,
+        executedBy: this.nodeId,
       },
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }

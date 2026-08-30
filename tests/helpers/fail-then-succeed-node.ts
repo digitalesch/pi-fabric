@@ -7,7 +7,7 @@ export class FailThenSucceedNode implements ModelNode {
   public attempts = 0;
 
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly failures: number,
   ) {}
 
@@ -31,7 +31,7 @@ export class FailThenSucceedNode implements ModelNode {
         success: false,
         output: null,
         metadata: {
-          nodeId: this.id,
+          nodeId: this.nodeId,
         },
         error: {
           code: 'TEMPORARY_FAILURE',
@@ -47,7 +47,7 @@ export class FailThenSucceedNode implements ModelNode {
         recovered: true,
       },
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }

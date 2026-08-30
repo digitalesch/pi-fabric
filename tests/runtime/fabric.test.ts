@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createFabric } from '../../src/create-fabric.js';
 import { FakeInferenceProvider } from '../../src/inference/fake.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 import type { Evaluator, Evaluation } from '../../src/evaluation/evaluator.js';
 import type { EvaluationDecision } from '../../src/core/evaluation-decision.js';
@@ -49,14 +50,21 @@ function createFabricForTest(
 
   const planValidator = new PlanValidator();
 
-  return new Fabric(
-    thinker,
-    planner,
-    planExecutor,
-    aspectRegistry,
-    planValidator,
-    evaluator,
-  );
+  const performanceRegistry = new PerformanceRegistry();
+  const provider = new FakeInferenceProvider();
+const inferenceProviders = [provider];
+
+return new Fabric(
+  thinker,
+  planner,
+  planExecutor,
+  aspectRegistry,
+  planValidator,
+  evaluator,
+  3,
+  inferenceProviders,
+  performanceRegistry,
+);
 }
 
 class InvalidDependencyThinker implements Thinker {

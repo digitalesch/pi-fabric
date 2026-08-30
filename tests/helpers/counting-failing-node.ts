@@ -6,7 +6,7 @@ import { Result } from '../../src/core/result.js';
 export class CountingFailingNode implements ModelNode {
   public attempts = 0;
 
-  constructor(public readonly id: string) {}
+  constructor(public readonly nodeId: string) {}
 
   capabilities(): Capability[] {
     return [
@@ -27,7 +27,7 @@ export class CountingFailingNode implements ModelNode {
       success: false,
       output: null,
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
       error: {
         code: 'TEMPORARY_FAILURE',

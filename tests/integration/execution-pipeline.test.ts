@@ -87,7 +87,7 @@ describe('execution pipeline integration', () => {
       createPlan([
         {
           task,
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
       ]),
     );
@@ -136,7 +136,7 @@ describe('execution pipeline integration', () => {
       createPlan(
         tasks.map((task) => ({
           task,
-          nodeId: node.id,
+          nodeId: node.nodeId,
         })),
       ),
     );
@@ -200,7 +200,7 @@ describe('execution pipeline integration', () => {
       createPlan(
         tasks.map((task) => ({
           task,
-          nodeId: node.id,
+          nodeId: node.nodeId,
         })),
       ),
     );
@@ -245,7 +245,7 @@ describe('execution pipeline integration', () => {
       createPlan(
         tasks.map((task) => ({
           task,
-          nodeId: node.id,
+          nodeId: node.nodeId,
         })),
       ),
     );
@@ -277,7 +277,7 @@ describe('execution pipeline integration', () => {
       createPlan(
         tasks.map((task) => ({
           task,
-          nodeId: node.id,
+          nodeId: node.nodeId,
         })),
       ),
     );
@@ -311,7 +311,7 @@ describe('execution pipeline integration', () => {
       createPlan([
         {
           task: createTask('task-1'),
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
       ]),
     );
@@ -340,7 +340,7 @@ describe('execution pipeline integration', () => {
       createPlan([
         {
           task: createTask('task-1'),
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
       ]),
     );
@@ -369,7 +369,7 @@ describe('execution pipeline integration', () => {
 
     const task = createTask('task-1');
 
-    const result = await executor.executeOn(task, first.id);
+    const result = await executor.executeOn(task, first.nodeId);
 
     expect(result).toMatchObject({
       taskId: 'task-1',
@@ -429,7 +429,7 @@ describe('execution pipeline integration', () => {
       createPlan(
         tasks.map((task) => ({
           task,
-          nodeId: node.id,
+          nodeId: node.nodeId,
         })),
       ),
     );
@@ -479,11 +479,11 @@ describe('execution pipeline integration', () => {
       createPlan([
         {
           task: createTask('A'),
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
         {
           task: createTask('B', ['A']),
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
       ]),
     );

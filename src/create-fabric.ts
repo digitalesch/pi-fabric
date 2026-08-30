@@ -30,8 +30,8 @@ export function createInferenceNode(
   provider: InferenceProvider,
 ): InferenceNode {
   return new InferenceNode(
-  `${provider.id}-inference`,
-  provider.id,
+    `${provider.id}-inference`,
+    provider.id,
   [
     {
       aspect: 'extract_requirements',

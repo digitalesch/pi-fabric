@@ -14,14 +14,14 @@ export class PerformanceRegistry {
     }));
   }
 
-  forProvider(
-    provider: string,
+  forNode(
+    nodeId: string,
     aspect: string,
   ): PerformanceObservation[] {
     return this.observations
       .filter(
         (observation) =>
-          observation.provider === provider &&
+          observation.nodeId === nodeId &&
           observation.aspect === aspect,
       )
       .map((observation) => ({
@@ -30,14 +30,14 @@ export class PerformanceRegistry {
   }
 
   profile(
-    provider: string,
+    nodeId: string,
     aspect: string,
   ): PerformanceProfile {
-    const observations = this.forProvider(provider, aspect);
+    const observations = this.forNode(nodeId, aspect);
 
     if (observations.length === 0) {
       return {
-        provider,
+        nodeId,
         aspect,
         executions: 0,
         successes: 0,
@@ -64,6 +64,11 @@ export class PerformanceRegistry {
           score !== undefined,
       );
 
+    const accepted = observations.filter(
+      (observation) =>
+        observation.evaluation?.accepted === true,
+    ).length;
+
     const averageLatencyMs =
       latencies.length > 0
         ? latencies.reduce(
@@ -80,16 +85,28 @@ export class PerformanceRegistry {
           ) / qualities.length
         : undefined;
 
+    const acceptanceRate =
+      observations.some(
+        (observation) => observation.evaluation !== undefined,
+      )
+        ? accepted /
+          observations.filter(
+            (observation) =>
+              observation.evaluation !== undefined,
+          ).length
+        : undefined;
+
     const confidence =
       observations.length /
       (observations.length + 10);
 
     return {
-      provider,
+      nodeId,
       aspect,
       executions: observations.length,
       successes,
       successRate: successes / observations.length,
+      acceptanceRate,
       averageLatencyMs,
       averageQuality,
       confidence,

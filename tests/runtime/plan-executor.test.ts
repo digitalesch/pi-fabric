@@ -71,7 +71,7 @@ describe('PlanExecutor execution state', () => {
       success: false,
       output: null,
       metadata: {
-        nodeId: node.id,
+        nodeId: node.nodeId,
       },
       error: {
         code: 'TEST_FAILURE',
@@ -114,7 +114,7 @@ describe('PlanExecutor execution state', () => {
       success: false,
       output: null,
       metadata: {
-        nodeId: failingNode.id,
+        nodeId: failingNode.nodeId,
       },
       error: {
         code: 'TEST_FAILURE',
@@ -256,7 +256,7 @@ describe('PlanExecutor execution state', () => {
         success: false,
         output: null,
         metadata: {
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
         error: {
           code: 'TEST_FAILURE',
@@ -322,7 +322,7 @@ describe('PlanExecutor execution state', () => {
         success: false,
         output: null,
         metadata: {
-          nodeId: failingNode.id,
+          nodeId: failingNode.nodeId,
         },
         error: {
           code: 'TEST_FAILURE',
@@ -832,7 +832,7 @@ describe('PlanExecutor execution state', () => {
         success: true,
         output: null,
         metadata: {
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
       };
     };
@@ -890,7 +890,7 @@ describe('PlanExecutor execution state', () => {
         success: true,
         output: null,
         metadata: {
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
       };
     };
@@ -945,7 +945,7 @@ describe('PlanExecutor execution state', () => {
           value: task.id,
         },
         metadata: {
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
       };
     };
@@ -996,7 +996,7 @@ describe('PlanExecutor execution state', () => {
           success: false,
           output: null,
           metadata: {
-            nodeId: node.id,
+            nodeId: node.nodeId,
           },
           error: {
             code: 'TEST_FAILURE',
@@ -1010,7 +1010,7 @@ describe('PlanExecutor execution state', () => {
         success: true,
         output: null,
         metadata: {
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
       };
     };
@@ -1069,7 +1069,7 @@ describe('PlanExecutor execution state', () => {
         success: false,
         output: null,
         metadata: {
-          nodeId: node.id,
+          nodeId: node.nodeId,
         },
         error: {
           code: 'TEST_FAILURE',
@@ -1301,7 +1301,7 @@ describe('PlanExecutor execution state', () => {
     const events: string[] = [];
 
     class FailingNode implements ModelNode {
-      constructor(public readonly id: string) {}
+      constructor(public readonly nodeId: string) {}
 
       capabilities(): Capability[] {
         return [];
@@ -1315,7 +1315,7 @@ describe('PlanExecutor execution state', () => {
           success: false,
           output: null,
           metadata: {
-            nodeId: this.id,
+            nodeId: this.nodeId,
           },
           error: {
             code: 'EXECUTION_FAILED',
@@ -1490,7 +1490,7 @@ describe('PlanExecutor execution state', () => {
         success: false,
         output: null,
         metadata: {
-          nodeId: failingNode.id,
+          nodeId: failingNode.nodeId,
         },
         error: {
           code: 'TEST_FAILURE',

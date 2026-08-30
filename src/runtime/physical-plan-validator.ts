@@ -35,7 +35,7 @@ export class PhysicalPlanValidator {
       .find((capability) => capability.aspect === aspect);
 
     if (!capability) {
-      throw new Error(`Node ${node.id} does not support aspect: ${aspect}`);
+      throw new Error(`Node ${node.nodeId} does not support aspect: ${aspect}`);
     }
   }
 

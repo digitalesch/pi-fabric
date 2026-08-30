@@ -34,7 +34,7 @@ describe('Provider routing', () => {
     const nodes = registry.findFor('extract_requirements');
 
     expect(nodes).toHaveLength(1);
-    expect(nodes[0].id).toBe('fake-inference');
+    expect(nodes[0].nodeId).toBe('fake-inference');
   });
 
   it('selects the highest-quality provider node', () => {
@@ -83,6 +83,6 @@ describe('Provider routing', () => {
       'extract_requirements',
     );
 
-    expect(selected.id).toBe('high-quality');
+    expect(selected.nodeId).toBe('high-quality');
   });
 });

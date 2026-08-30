@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { createFabric, type FabricOptions } from '../../src/create-fabric.js';
 import { NeedleProvider } from '../../src/inference/needle.js';
-import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 describe('createFabric', () => {
   it('records performance for configured providers', async () => {
@@ -19,7 +18,7 @@ describe('createFabric', () => {
 
       const profile = fabric
         .getPerformanceRegistry()
-        .profile('needle', 'extract_requirements');
+        .profile('needle-inference', 'extract_requirements');
 
       expect(profile.executions).toBe(1);
       expect(profile.successRate).toBe(1);
@@ -39,7 +38,7 @@ describe('createFabric', () => {
 
       const registry = fabric.getPerformanceRegistry();
 
-      const profile = registry.profile('fake', 'extract_requirements');
+      const profile = registry.profile('fake-inference', 'extract_requirements');
 
       expect(profile.executions).toBe(1);
       expect(profile.successRate).toBe(1);

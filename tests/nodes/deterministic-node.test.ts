@@ -74,7 +74,7 @@ describe('DeterministicNode', () => {
   it('exposes its ID', () => {
     const node = new DeterministicNode('deterministic-1', () => ({}));
 
-    expect(node.id).toBe('deterministic-1');
+    expect(node.nodeId).toBe('deterministic-1');
   });
 
   it('exposes its capabilities', () => {

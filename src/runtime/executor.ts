@@ -14,7 +14,7 @@ export class Executor {
     private readonly performanceRegistry?: PerformanceRegistry,
   ) {}
 
-   /**
+  /**
    * Execute a logical task.
    *
    * Finds eligible nodes, selects the best one according to the
@@ -32,7 +32,7 @@ export class Executor {
 
     while (attempted.size < candidates.length) {
       const available = candidates.filter(
-        (node) => !attempted.has(node.id),
+        (node) => !attempted.has(node.nodeId),
       );
 
       const node = this.selector.select(
@@ -41,9 +41,9 @@ export class Executor {
         task.requirements,
       );
 
-      attempted.add(node.id);
+      attempted.add(node.nodeId);
 
-      const result = await this.executeOn(task, node.id);
+      const result = await this.executeOn(task, node.nodeId);
 
       if (result.success) {
         return result;
@@ -64,8 +64,13 @@ export class Executor {
    *
    * Used by PlanExecutor after physical planning.
    * Does not perform node selection.
+   *
+   * Every execution attempt is recorded independently.
    */
-  async executeOn(task: Task, nodeId: string): Promise<Result> {
+  async executeOn(
+    task: Task,
+    nodeId: string,
+  ): Promise<Result> {
     const node = this.registry.get(nodeId);
 
     if (!node) {
@@ -78,7 +83,7 @@ export class Executor {
       try {
         const result = await node.execute(task);
 
-        this.recordPerformance(task, result);
+        this.recordPerformance(task, node.nodeId, result);
 
         if (result.success) {
           return result;
@@ -91,26 +96,28 @@ export class Executor {
           return result;
         }
       } catch (error) {
+        const result: Result = {
+          taskId: task.id,
+          success: false,
+          output: null,
+          metadata: {
+            nodeId: node.nodeId,
+          },
+          error: {
+            code: 'NODE_EXECUTION_FAILED',
+            message:
+              error instanceof Error
+                ? error.message
+                : String(error),
+          },
+        };
+
+        this.recordPerformance(task, node.nodeId, result);
+
         if (
           !this.retryPolicy ||
           !this.retryPolicy.shouldRetry(attempt, error)
         ) {
-          const result: Result = {
-            taskId: task.id,
-            success: false,
-            output: null,
-            metadata: {
-              nodeId: node.id,
-            },
-            error: {
-              code: 'NODE_EXECUTION_FAILED',
-              message:
-                error instanceof Error ? error.message : String(error),
-            },
-          };
-
-          this.recordPerformance(task, result);
-
           return result;
         }
       }
@@ -119,19 +126,17 @@ export class Executor {
     }
   }
 
-  private recordPerformance(task: Task, result: Result): void {
+  private recordPerformance(
+    task: Task,
+    nodeId: string,
+    result: Result,
+  ): void {
     if (!this.performanceRegistry) {
       return;
     }
 
-    const provider = result.metadata.provider;
-
-    if (!provider) {
-      return;
-    }
-
     this.performanceRegistry.record({
-      provider,
+      nodeId,
       aspect: task.aspect,
       success: result.success,
       latencyMs: result.metadata.latencyMs,

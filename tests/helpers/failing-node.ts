@@ -5,7 +5,7 @@ import { Result } from '../../src/core/result.js';
 
 export class FailingNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly error: string,
   ) {}
 

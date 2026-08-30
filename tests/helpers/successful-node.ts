@@ -6,7 +6,7 @@ import { Result } from '../../src/core/result.js';
 export class SuccessfulNode implements ModelNode {
   public attempts = 0;
 
-  constructor(public readonly id: string) {}
+  constructor(public readonly nodeId: string) {}
 
   capabilities(): Capability[] {
     return [
@@ -26,10 +26,10 @@ export class SuccessfulNode implements ModelNode {
       taskId: task.id,
       success: true,
       output: {
-        executedBy: this.id,
+        executedBy: this.nodeId,
       },
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }

@@ -29,12 +29,12 @@ const createTask = (id: string, dependencies: string[] = []): Task => ({
 });
 
 const createNode = (
-  id = 'deterministic-node',
+  nodeId = 'deterministic-node',
   handler: (task: Task) => unknown | Promise<unknown> = (task) => ({
     processed: task.id,
   }),
 ) =>
-  new DeterministicNode(id, handler, [
+  new DeterministicNode(nodeId, handler, [
     {
       aspect: 'extract_requirements',
       quality: 1.0,

@@ -22,7 +22,7 @@ export class Planner {
 
         return {
           task,
-          nodeId: node.id,
+          nodeId: node.nodeId,
         };
       }),
     };

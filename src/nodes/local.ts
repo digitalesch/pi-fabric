@@ -7,7 +7,7 @@ import type { ModelNode } from './node.js';
 
 export class LocalNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly nodeCapabilities: Capability[],
     private readonly provider: InferenceProvider,
   ) {}
@@ -29,7 +29,7 @@ export class LocalNode implements ModelNode {
       metadata: {
         ...result.metadata,
 
-        nodeId: this.id,
+        nodeId: this.nodeId,
 
         provider: result.metadata.provider ?? this.provider.id,
       },

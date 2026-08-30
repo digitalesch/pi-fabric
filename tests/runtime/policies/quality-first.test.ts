@@ -40,7 +40,7 @@ describe('QualityFirstPolicy', () => {
 
     const selected = policy.select([small, large], 'extract_requirements');
 
-    expect(selected.id).toBe('large');
+    expect(selected.nodeId).toBe('large');
   });
 
   it('filters nodes using execution requirements', () => {
@@ -81,7 +81,7 @@ describe('QualityFirstPolicy', () => {
       minimumContextWindow: 8192,
     });
 
-    expect(selected.id).toBe('large');
+    expect(selected.nodeId).toBe('large');
   });
 
   it('can require local execution', () => {
@@ -121,6 +121,6 @@ describe('QualityFirstPolicy', () => {
       localOnly: true,
     });
 
-    expect(selected.id).toBe('local');
+    expect(selected.nodeId).toBe('local');
   });
 });

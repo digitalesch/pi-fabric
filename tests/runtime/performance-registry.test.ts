@@ -6,7 +6,7 @@ import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 const createObservation = (
   overrides: Partial<PerformanceObservation> = {},
 ): PerformanceObservation => ({
-  provider: 'needle',
+  nodeId: 'needle-local',
   aspect: 'extract_requirements',
   success: true,
   timestamp: Date.now(),
@@ -24,7 +24,7 @@ describe('PerformanceRegistry', () => {
     );
 
     const profile = registry.profile(
-      'needle',
+      'needle-local',
       'extract_requirements',
     );
 
@@ -44,7 +44,7 @@ describe('PerformanceRegistry', () => {
     );
 
     const profile = registry.profile(
-      'needle',
+      'needle-local',
       'extract_requirements',
     );
 
@@ -75,7 +75,7 @@ describe('PerformanceRegistry', () => {
     );
 
     const profile = registry.profile(
-      'needle',
+      'needle-local',
       'extract_requirements',
     );
 
@@ -97,7 +97,7 @@ describe('PerformanceRegistry', () => {
     expect(registry.all()).toHaveLength(1);
   });
 
-  it('returns observations for a provider and aspect', () => {
+  it('returns observations for a node and aspect', () => {
     const registry = new PerformanceRegistry();
 
     registry.record(
@@ -117,14 +117,14 @@ describe('PerformanceRegistry', () => {
 
     registry.record(
       createObservation({
-        provider: 'http',
+        nodeId: 'http-local',
         latencyMs: 800,
         timestamp: 3000,
       }),
     );
 
-    const observations = registry.forProvider(
-      'needle',
+    const observations = registry.forNode(
+      'needle-local',
       'extract_requirements',
     );
 
@@ -132,7 +132,7 @@ describe('PerformanceRegistry', () => {
 
     expect(
       observations.every(
-        (observation) => observation.provider === 'needle',
+        (observation) => observation.nodeId === 'needle-local',
       ),
     ).toBe(true);
   });
@@ -175,23 +175,24 @@ describe('PerformanceRegistry', () => {
     );
 
     const profile = registry.profile(
-      'needle',
+      'needle-local',
       'extract_requirements',
     );
 
     expect(profile).toMatchObject({
-      provider: 'needle',
+      nodeId: 'needle-local',
       aspect: 'extract_requirements',
       executions: 3,
       successes: 2,
       successRate: 2 / 3,
     });
 
+    expect(profile.acceptanceRate).toBeCloseTo(2 / 3);
     expect(profile.averageLatencyMs).toBe(500);
     expect(profile.averageQuality).toBeCloseTo(0.6333333333);
   });
 
-  it('returns an empty profile for an unknown provider', () => {
+  it('returns an empty profile for an unknown node', () => {
     const registry = new PerformanceRegistry();
 
     const profile = registry.profile(
@@ -200,7 +201,7 @@ describe('PerformanceRegistry', () => {
     );
 
     expect(profile).toEqual({
-      provider: 'unknown',
+      nodeId: 'unknown',
       aspect: 'extract_requirements',
       executions: 0,
       successes: 0,
@@ -229,9 +230,9 @@ describe('PerformanceRegistry', () => {
     }
 
     expect(
-      ten.profile('needle', 'extract_requirements').confidence,
+      ten.profile('needle-local', 'extract_requirements').confidence,
     ).toBeGreaterThan(
-      one.profile('needle', 'extract_requirements').confidence,
+      one.profile('needle-local', 'extract_requirements').confidence,
     );
   });
 });

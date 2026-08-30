@@ -9,7 +9,7 @@ import { LatencyFirstPolicy } from '../../../src/runtime/policies/latency-first.
 
 class TestNode implements ModelNode {
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly capability: Capability,
   ) {}
 
@@ -44,7 +44,7 @@ describe('LatencyFirstPolicy', () => {
 
     const selected = policy.select([slow, fast], 'extract_requirements');
 
-    expect(selected.id).toBe('fast');
+    expect(selected.nodeId).toBe('fast');
   });
 
   it('applies requirements before latency ranking', () => {
@@ -72,7 +72,7 @@ describe('LatencyFirstPolicy', () => {
       },
     );
 
-    expect(selected.id).toBe('slower-eligible');
+    expect(selected.nodeId).toBe('slower-eligible');
   });
 
   it('prefers a node with known latency over one without latency', () => {
@@ -93,7 +93,7 @@ describe('LatencyFirstPolicy', () => {
 
     const selected = policy.select([unknown, known], 'extract_requirements');
 
-    expect(selected.id).toBe('known');
+    expect(selected.nodeId).toBe('known');
   });
 
   it('throws when no node satisfies requirements', () => {

@@ -7,7 +7,7 @@ export class RecordingNode implements ModelNode {
   public readonly receivedTasks: Task[] = [];
 
   constructor(
-    public readonly id: string,
+    public readonly nodeId: string,
     private readonly capability: Capability = {
       aspect: 'extract_requirements',
       quality: 0.8,
@@ -28,10 +28,10 @@ export class RecordingNode implements ModelNode {
       success: true,
       output: {
         requirements: ['test requirement'],
-        executedBy: this.id,
+        executedBy: this.nodeId,
       },
       metadata: {
-        nodeId: this.id,
+        nodeId: this.nodeId,
       },
     };
   }

@@ -14,6 +14,7 @@ import { FakeThinker } from '../../src/thinker/fake.js';
 import { FakeInferenceProvider } from '../../src/inference/fake.js';
 import { PlanValidator } from '../../src/runtime/plan-validator.js';
 import { BasicEvaluator } from '../../src/evaluation/basic.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 describe('Fabric', () => {
   it('plans and executes an objective', async () => {
@@ -60,14 +61,20 @@ describe('Fabric', () => {
 
     const evaluator = new BasicEvaluator();
 
-    const fabric = new Fabric(
-      thinker,
-      planner,
-      planExecutor,
-      aspectRegistry,
-      planValidator,
-      evaluator,
-    );
+    const performanceRegistry = new PerformanceRegistry();
+const inferenceProviders = [provider];
+
+const fabric = new Fabric(
+  thinker,
+  planner,
+  planExecutor,
+  aspectRegistry,
+  planValidator,
+  evaluator,
+  3,
+  inferenceProviders,
+  performanceRegistry,
+);
 
     const result = await fabric.run({
       description: 'Analyze a mechanical design and identify its requirements.',
