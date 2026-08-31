@@ -1,23 +1,26 @@
 import type { ExecutionRequirements } from '../../core/execution-requirements.js';
 import type { ModelNode } from '../../nodes/node.js';
-
 import { NodeEligibility } from '../node-eligibility.js';
-import type { PerformanceRegistry } from '../performance-registry.js';
+import type { SchedulingContext } from '../scheduling-context.js';
 import type { SchedulingPolicy } from '../scheduling-policy.js';
 
 export class QualityFirstPolicy implements SchedulingPolicy {
   constructor(
     private readonly eligibility = new NodeEligibility(),
-    private readonly performanceRegistry?: PerformanceRegistry,
   ) {}
 
   select(
     nodes: ModelNode[],
     aspect: string,
     requirements?: ExecutionRequirements,
+    _context?: SchedulingContext,
   ): ModelNode {
     const candidates = nodes.filter((node) =>
-      this.eligibility.satisfies(node, aspect, requirements),
+      this.eligibility.satisfies(
+        node,
+        aspect,
+        requirements,
+      ),
     );
 
     if (candidates.length === 0) {
@@ -40,25 +43,10 @@ export class QualityFirstPolicy implements SchedulingPolicy {
   ): number {
     const capability = node
       .capabilities()
-      .find((capability) => capability.aspect === aspect);
+      .find(
+        (capability) => capability.aspect === aspect,
+      );
 
-    if (!capability) {
-      return Number.NEGATIVE_INFINITY;
-    }
-
-    const observed = this.performanceRegistry?.profile(
-      node.nodeId,
-      aspect,
-    );
-
-    if (!observed || observed.executions === 0) {
-      return capability.quality;
-    }
-
-    return (
-      capability.quality * (1 - observed.confidence) +
-      (observed.averageQuality ?? capability.quality) *
-        observed.confidence
-    );
+    return capability?.quality ?? Number.NEGATIVE_INFINITY;
   }
 }
