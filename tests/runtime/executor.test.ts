@@ -71,12 +71,12 @@ describe('Executor', () => {
 
     registry.register(fakeNode);
 
+    const performanceRegistry = new PerformanceRegistry();
+
     const selector = new NodeSelector(
       new QualityFirstPolicy(),
+      performanceRegistry,
     );
-
-    const performanceRegistry =
-      new PerformanceRegistry();
 
     const executor = new Executor(
       registry,
@@ -85,10 +85,7 @@ describe('Executor', () => {
       performanceRegistry,
     );
 
-    const result = await executor.executeOn(
-      task,
-      'fake-local',
-    );
+    const result = await executor.executeOn(task, 'fake-local');
 
     expect(result.success).toBe(true);
     expect(result.metadata.nodeId).toBe('fake-local');
@@ -134,14 +131,14 @@ describe('Executor', () => {
       ),
     );
 
+    const performanceRegistry = new PerformanceRegistry();
+
     const selector = new NodeSelector(
       new QualityFirstPolicy(),
+      performanceRegistry,
     );
 
-    const executor = new Executor(
-      registry,
-      selector,
-    );
+    const executor = new Executor(registry, selector);
 
     const result = await executor.execute(task);
 
@@ -158,7 +155,12 @@ describe('Executor', () => {
     registry.register(nodeA);
     registry.register(nodeB);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(2);
 
@@ -183,7 +185,12 @@ describe('Executor', () => {
     registry.register(nodeA);
     registry.register(nodeB);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(2);
 
@@ -209,7 +216,12 @@ describe('Executor', () => {
     registry.register(nodeA);
     registry.register(nodeB);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(2);
 
@@ -233,7 +245,12 @@ describe('Executor', () => {
     registry.register(nodeA);
     registry.register(nodeB);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(2);
 
@@ -254,7 +271,12 @@ describe('Executor', () => {
 
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(2);
 
@@ -273,7 +295,12 @@ describe('Executor', () => {
 
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(2);
 
@@ -292,7 +319,12 @@ describe('Executor', () => {
 
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(2);
 
@@ -315,7 +347,12 @@ describe('Executor', () => {
 
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(0);
 
@@ -334,7 +371,12 @@ describe('Executor', () => {
 
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(3);
 
@@ -353,7 +395,12 @@ describe('Executor', () => {
 
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 
@@ -369,7 +416,12 @@ describe('Executor', () => {
 
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 

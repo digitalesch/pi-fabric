@@ -14,13 +14,8 @@ export class NodeSelector {
     aspect: string,
     requirements?: ExecutionRequirements,
   ): ModelNode {
-    return this.policy.select(
-      nodes,
-      aspect,
-      requirements,
-      {
-        performance: this.performanceRegistry,
-      },
-    );
+    return this.policy.select(nodes, aspect, requirements, {
+      performance: this.performanceRegistry,
+    });
   }
 }

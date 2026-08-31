@@ -62,19 +62,19 @@ describe('Fabric', () => {
     const evaluator = new BasicEvaluator();
 
     const performanceRegistry = new PerformanceRegistry();
-const inferenceProviders = [provider];
+    const inferenceProviders = [provider];
 
-const fabric = new Fabric(
-  thinker,
-  planner,
-  planExecutor,
-  aspectRegistry,
-  planValidator,
-  evaluator,
-  3,
-  inferenceProviders,
-  performanceRegistry,
-);
+    const fabric = new Fabric(
+      thinker,
+      planner,
+      planExecutor,
+      aspectRegistry,
+      planValidator,
+      evaluator,
+      3,
+      inferenceProviders,
+      performanceRegistry,
+    );
 
     const result = await fabric.run({
       description: 'Analyze a mechanical design and identify its requirements.',

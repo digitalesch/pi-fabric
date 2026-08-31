@@ -13,6 +13,7 @@ import { FakeInferenceProvider } from '../../src/inference/fake.js';
 import type { Capability } from '../../src/core/capability.js';
 import { Task } from '../../src/core/task.js';
 import { Result } from '../../src/core/result.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 class RecordingNode implements ModelNode {
   public readonly receivedTasks: Task[] = [];
@@ -79,7 +80,12 @@ describe('Planner', () => {
     registry.register(small);
     registry.register(large);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const planner = new Planner(registry, selector);
 
@@ -145,7 +151,12 @@ describe('Planner', () => {
     registry.register(localSmall);
     registry.register(localLarge);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const planner = new Planner(registry, selector);
 
@@ -195,7 +206,12 @@ describe('Planner', () => {
     nodeRegistry.register(lowQualityNode);
     nodeRegistry.register(highQualityNode);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const planner = new Planner(nodeRegistry, selector);
 

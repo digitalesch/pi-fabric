@@ -21,9 +21,11 @@ import { FakeThinker } from './thinker/fake.js';
 
 import { InProcessTransport } from './transport/in-process.js';
 import { PerformanceRegistry } from './runtime/performance-registry.js';
+import { SchedulingPolicy } from './runtime/scheduling-policy.js';
 
 export interface FabricOptions {
   providers?: InferenceProvider[];
+  schedulingPolicy?: SchedulingPolicy;
 }
 
 export function createInferenceNode(
@@ -32,17 +34,17 @@ export function createInferenceNode(
   return new InferenceNode(
     `${provider.id}-inference`,
     provider.id,
-  [
-    {
-      aspect: 'extract_requirements',
-      quality: provider.id === 'needle' ? 0.95 : 0.8,
-      contextWindow: 4096,
-      local: true,
-      latencyMs: provider.id === 'needle' ? 400 : 1,
-    },
-  ],
-  new InProcessTransport(provider),
-);
+    [
+      {
+        aspect: 'extract_requirements',
+        quality: provider.id === 'needle' ? 0.95 : 0.8,
+        contextWindow: 4096,
+        local: true,
+        latencyMs: provider.id === 'needle' ? 400 : 1,
+      },
+    ],
+    new InProcessTransport(provider),
+  );
 }
 
 export function createFabric(options: FabricOptions = {}): Fabric {
@@ -60,7 +62,9 @@ export function createFabric(options: FabricOptions = {}): Fabric {
 
   const performanceRegistry = new PerformanceRegistry();
 
-  const selector = new NodeSelector(new QualityFirstPolicy());
+  const policy = options.schedulingPolicy ?? new QualityFirstPolicy();
+
+  const selector = new NodeSelector(policy, performanceRegistry);
 
   const executor = new Executor(
     nodeRegistry,

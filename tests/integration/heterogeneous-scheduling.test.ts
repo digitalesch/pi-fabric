@@ -10,6 +10,7 @@ import { NodeSelector } from '../../src/runtime/node-selector.js';
 import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js';
 import { Planner } from '../../src/runtime/planner.js';
 import { NodeRegistry } from '../../src/runtime/registry.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 class TestNode implements ModelNode {
   constructor(
@@ -93,7 +94,12 @@ describe('Heterogeneous node scheduling', () => {
       capability({ quality: 0.95 }),
     ]);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const selected = selector.select(
       [lowQuality, highQuality],
@@ -112,7 +118,12 @@ describe('Heterogeneous node scheduling', () => {
       capability({ quality: 0.95 }),
     ]);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const selected = selector.select(
       [lowQuality, highQuality],
@@ -134,7 +145,12 @@ describe('Heterogeneous node scheduling', () => {
       capability({ quality: 0.8, latencyMs: 20 }),
     ]);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const selected = selector.select([slow, fast], 'extract_requirements', {
       maximumLatencyMs: 100,
@@ -165,7 +181,12 @@ describe('Heterogeneous node scheduling', () => {
       }),
     ]);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const selected = selector.select(
       [cheapFast, qualitySlow, balanced],
@@ -194,7 +215,12 @@ describe('Heterogeneous node scheduling', () => {
       }),
     ]);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const selected = selector.select([remote, local], 'extract_requirements', {
       localOnly: true,
@@ -211,7 +237,12 @@ describe('Heterogeneous node scheduling', () => {
       }),
     ]);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     expect(() =>
       selector.select([node], 'extract_requirements', {

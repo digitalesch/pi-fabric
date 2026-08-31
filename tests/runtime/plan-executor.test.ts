@@ -16,6 +16,7 @@ import { ConcurrencyNode } from '../helpers/concurrency-node.js';
 import { DelayedNode } from '../helpers/delayed-node.js';
 import { ExecutionHistory } from '../../src/runtime/execution-history.js';
 import { createTask } from '../helpers/create-task.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 function makeTask(id: string, dependencies: string[] = []): Task {
   return {
@@ -40,7 +41,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
     const taskExecutor = new Executor(nodeRegistry, selector);
     const history = new ExecutionHistory();
     const planExecutor = new PlanExecutor(taskExecutor, history);
@@ -81,7 +87,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
     const taskExecutor = new Executor(nodeRegistry, selector);
     const history = new ExecutionHistory();
     const planExecutor = new PlanExecutor(taskExecutor, history);
@@ -125,7 +136,12 @@ describe('PlanExecutor execution state', () => {
     nodeRegistry.register(failingNode);
     nodeRegistry.register(dependentNode);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
     const taskExecutor = new Executor(nodeRegistry, selector);
     const history = new ExecutionHistory();
 
@@ -171,7 +187,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -203,7 +224,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -267,7 +293,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -334,7 +365,12 @@ describe('PlanExecutor execution state', () => {
     nodeRegistry.register(failingNode);
     nodeRegistry.register(dependentNode);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -401,7 +437,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -465,7 +506,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -540,7 +586,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -615,7 +666,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -671,7 +727,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -781,7 +842,12 @@ describe('PlanExecutor execution state', () => {
     const registry = new NodeRegistry();
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 
@@ -840,7 +906,12 @@ describe('PlanExecutor execution state', () => {
     const registry = new NodeRegistry();
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 
@@ -898,7 +969,12 @@ describe('PlanExecutor execution state', () => {
     const registry = new NodeRegistry();
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 
@@ -953,7 +1029,12 @@ describe('PlanExecutor execution state', () => {
     const registry = new NodeRegistry();
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 
@@ -1018,7 +1099,12 @@ describe('PlanExecutor execution state', () => {
     const registry = new NodeRegistry();
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 
@@ -1081,7 +1167,12 @@ describe('PlanExecutor execution state', () => {
     const registry = new NodeRegistry();
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 
@@ -1131,7 +1222,12 @@ describe('PlanExecutor execution state', () => {
     const registry = new NodeRegistry();
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 
@@ -1422,7 +1518,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -1502,7 +1603,12 @@ describe('PlanExecutor execution state', () => {
     nodeRegistry.register(failingNode);
     nodeRegistry.register(dependentNode);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -1578,7 +1684,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 
@@ -1639,7 +1750,12 @@ describe('PlanExecutor execution state', () => {
 
     nodeRegistry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const taskExecutor = new Executor(nodeRegistry, selector);
 

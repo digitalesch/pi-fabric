@@ -14,25 +14,18 @@ export class PerformanceRegistry {
     }));
   }
 
-  forNode(
-    nodeId: string,
-    aspect: string,
-  ): PerformanceObservation[] {
+  forNode(nodeId: string, aspect: string): PerformanceObservation[] {
     return this.observations
       .filter(
         (observation) =>
-          observation.nodeId === nodeId &&
-          observation.aspect === aspect,
+          observation.nodeId === nodeId && observation.aspect === aspect,
       )
       .map((observation) => ({
         ...observation,
       }));
   }
 
-  profile(
-    nodeId: string,
-    aspect: string,
-  ): PerformanceProfile {
+  profile(nodeId: string, aspect: string): PerformanceProfile {
     const observations = this.forNode(nodeId, aspect);
 
     if (observations.length === 0) {
@@ -52,53 +45,38 @@ export class PerformanceRegistry {
 
     const latencies = observations
       .map((observation) => observation.latencyMs)
-      .filter(
-        (latency): latency is number =>
-          latency !== undefined,
-      );
+      .filter((latency): latency is number => latency !== undefined);
 
     const qualities = observations
       .map((observation) => observation.evaluation?.score)
-      .filter(
-        (score): score is number =>
-          score !== undefined,
-      );
+      .filter((score): score is number => score !== undefined);
 
     const accepted = observations.filter(
-      (observation) =>
-        observation.evaluation?.accepted === true,
+      (observation) => observation.evaluation?.accepted === true,
     ).length;
 
     const averageLatencyMs =
       latencies.length > 0
-        ? latencies.reduce(
-            (sum, latency) => sum + latency,
-            0,
-          ) / latencies.length
+        ? latencies.reduce((sum, latency) => sum + latency, 0) /
+          latencies.length
         : undefined;
 
     const averageQuality =
       qualities.length > 0
-        ? qualities.reduce(
-            (sum, quality) => sum + quality,
-            0,
-          ) / qualities.length
+        ? qualities.reduce((sum, quality) => sum + quality, 0) /
+          qualities.length
         : undefined;
 
-    const acceptanceRate =
-      observations.some(
-        (observation) => observation.evaluation !== undefined,
-      )
-        ? accepted /
-          observations.filter(
-            (observation) =>
-              observation.evaluation !== undefined,
-          ).length
-        : undefined;
+    const acceptanceRate = observations.some(
+      (observation) => observation.evaluation !== undefined,
+    )
+      ? accepted /
+        observations.filter(
+          (observation) => observation.evaluation !== undefined,
+        ).length
+      : undefined;
 
-    const confidence =
-      observations.length /
-      (observations.length + 10);
+    const confidence = observations.length / (observations.length + 10);
 
     return {
       nodeId,

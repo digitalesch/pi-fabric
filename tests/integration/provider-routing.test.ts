@@ -5,6 +5,7 @@ import { InferenceNode } from '../../src/nodes/inference-node.js';
 import { NodeSelector } from '../../src/runtime/node-selector.js';
 import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js';
 import { NodeRegistry } from '../../src/runtime/registry.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 describe('Provider routing', () => {
   it('creates an inference node for a provider', () => {
@@ -76,7 +77,12 @@ describe('Provider routing', () => {
       },
     );
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const selected = selector.select(
       [lowQuality, highQuality],

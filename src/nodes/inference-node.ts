@@ -30,9 +30,7 @@ export class InferenceNode implements ModelNode {
 
     const response = await this.transport.send(request);
 
-    const latencyMs =
-      response.metadata?.latencyMs ??
-      Date.now() - startedAt;
+    const latencyMs = response.metadata?.latencyMs ?? Date.now() - startedAt;
 
     return {
       taskId: task.id,

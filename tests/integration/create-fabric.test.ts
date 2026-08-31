@@ -38,7 +38,10 @@ describe('createFabric', () => {
 
       const registry = fabric.getPerformanceRegistry();
 
-      const profile = registry.profile('fake-inference', 'extract_requirements');
+      const profile = registry.profile(
+        'fake-inference',
+        'extract_requirements',
+      );
 
       expect(profile.executions).toBe(1);
       expect(profile.successRate).toBe(1);

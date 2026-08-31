@@ -1,23 +1,18 @@
+import type { ExecutionRequirements } from '../../core/execution-requirements.js';
+import type { ModelNode } from '../../nodes/node.js';
+
 import { NodeEligibility } from '../node-eligibility.js';
-import { SchedulingPolicy } from '../scheduling-policy.js';
-import { ModelNode } from '../../nodes/node.js';
-import { ExecutionRequirements } from '../../core/execution-requirements.js';
-import { SchedulingContext } from '../scheduling-context.js';
+import type {
+  SchedulingContext,
+  SchedulingPolicy,
+} from '../scheduling-policy.js';
 
 export class AdaptivePolicy implements SchedulingPolicy {
   constructor(
     private readonly eligibility = new NodeEligibility(),
     private readonly qualityWeight = 0.7,
     private readonly acceptanceWeight = 0.3,
-  ) {
-    if (
-      qualityWeight < 0 ||
-      acceptanceWeight < 0 ||
-      qualityWeight + acceptanceWeight !== 1
-    ) {
-      throw new Error('Scheduling weights must be non-negative and sum to 1');
-    }
-  }
+  ) {}
 
   select(
     nodes: ModelNode[],

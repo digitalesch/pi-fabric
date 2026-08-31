@@ -11,6 +11,7 @@ import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js'
 
 import { Executor } from '../../src/runtime/executor.js';
 import { PlanExecutor } from '../../src/runtime/plan-executor.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 const createTask = (id: string, dependencies: string[] = []): Task => ({
   id,
@@ -53,7 +54,12 @@ const createStack = (
 
   registry.register(node);
 
-  const selector = new NodeSelector(new QualityFirstPolicy());
+  const performanceRegistry = new PerformanceRegistry();
+
+  const selector = new NodeSelector(
+    new QualityFirstPolicy(),
+    performanceRegistry,
+  );
 
   const executor = new Executor(registry, selector);
 
@@ -379,7 +385,12 @@ describe('DeterministicNode integration', () => {
     registry.register(lowQuality);
     registry.register(highQuality);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const executor = new Executor(registry, selector);
 

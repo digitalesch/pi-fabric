@@ -9,6 +9,7 @@ import { createTask } from '../../helpers/create-task.js';
 import { CountingFailingNode } from '../../helpers/counting-failing-node.js';
 
 import { RecordingRetryPolicy } from '../../helpers/record-retry-policy.js';
+import { PerformanceRegistry } from '../../../src/runtime/performance-registry.js';
 
 describe('Executor retry behavior', () => {
   it('passes the current attempt number to the retry policy', async () => {
@@ -18,7 +19,12 @@ describe('Executor retry behavior', () => {
 
     registry.register(node);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const retryPolicy = new RecordingRetryPolicy(2);
 

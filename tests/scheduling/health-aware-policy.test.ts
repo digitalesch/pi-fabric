@@ -160,8 +160,8 @@ describe('HealthAwarePolicy', () => {
       status: 'healthy',
     });
 
-    expect(policy.select([low, medium, high], 'extract_requirements').nodeId).toBe(
-      'high',
-    );
+    expect(
+      policy.select([low, medium, high], 'extract_requirements').nodeId,
+    ).toBe('high');
   });
 });

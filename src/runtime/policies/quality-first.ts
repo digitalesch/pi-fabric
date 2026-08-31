@@ -5,9 +5,7 @@ import type { SchedulingContext } from '../scheduling-context.js';
 import type { SchedulingPolicy } from '../scheduling-policy.js';
 
 export class QualityFirstPolicy implements SchedulingPolicy {
-  constructor(
-    private readonly eligibility = new NodeEligibility(),
-  ) {}
+  constructor(private readonly eligibility = new NodeEligibility()) {}
 
   select(
     nodes: ModelNode[],
@@ -16,17 +14,11 @@ export class QualityFirstPolicy implements SchedulingPolicy {
     _context?: SchedulingContext,
   ): ModelNode {
     const candidates = nodes.filter((node) =>
-      this.eligibility.satisfies(
-        node,
-        aspect,
-        requirements,
-      ),
+      this.eligibility.satisfies(node, aspect, requirements),
     );
 
     if (candidates.length === 0) {
-      throw new Error(
-        `No node satisfies requirements for aspect: ${aspect}`,
-      );
+      throw new Error(`No node satisfies requirements for aspect: ${aspect}`);
     }
 
     return candidates.reduce((best, current) => {
@@ -37,15 +29,10 @@ export class QualityFirstPolicy implements SchedulingPolicy {
     });
   }
 
-  private score(
-    node: ModelNode,
-    aspect: string,
-  ): number {
+  private score(node: ModelNode, aspect: string): number {
     const capability = node
       .capabilities()
-      .find(
-        (capability) => capability.aspect === aspect,
-      );
+      .find((capability) => capability.aspect === aspect);
 
     return capability?.quality ?? Number.NEGATIVE_INFINITY;
   }

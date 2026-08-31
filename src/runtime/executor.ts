@@ -67,10 +67,7 @@ export class Executor {
    *
    * Every execution attempt is recorded independently.
    */
-  async executeOn(
-    task: Task,
-    nodeId: string,
-  ): Promise<Result> {
+  async executeOn(task: Task, nodeId: string): Promise<Result> {
     const node = this.registry.get(nodeId);
 
     if (!node) {
@@ -105,10 +102,7 @@ export class Executor {
           },
           error: {
             code: 'NODE_EXECUTION_FAILED',
-            message:
-              error instanceof Error
-                ? error.message
-                : String(error),
+            message: error instanceof Error ? error.message : String(error),
           },
         };
 
@@ -126,11 +120,7 @@ export class Executor {
     }
   }
 
-  private recordPerformance(
-    task: Task,
-    nodeId: string,
-    result: Result,
-  ): void {
+  private recordPerformance(task: Task, nodeId: string, result: Result): void {
     if (!this.performanceRegistry) {
       return;
     }

@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { LocalNode } from '../../src/nodes/local.js';
 import { createFabric } from '../../src/create-fabric.js';
 import { FakeInferenceProvider } from '../../src/inference/fake.js';
 import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
+
+import { BasicEvaluator } from '../../src/evaluation/basic.js';
+import { FakeThinker } from '../../src/thinker/fake.js';
+import { AdaptivePolicy } from '../../src/runtime/policies/adaptative-policy.js';
 
 import type { Evaluator, Evaluation } from '../../src/evaluation/evaluator.js';
 import type { EvaluationDecision } from '../../src/core/evaluation-decision.js';
@@ -40,7 +45,12 @@ function createFabricForTest(
     nodeRegistry.register(node);
   }
 
-  const selector = new NodeSelector(new QualityFirstPolicy());
+  const performanceRegistry = new PerformanceRegistry();
+
+  const selector = new NodeSelector(
+    new QualityFirstPolicy(),
+    performanceRegistry,
+  );
 
   const executor = new Executor(nodeRegistry, selector);
 
@@ -50,21 +60,20 @@ function createFabricForTest(
 
   const planValidator = new PlanValidator();
 
-  const performanceRegistry = new PerformanceRegistry();
   const provider = new FakeInferenceProvider();
-const inferenceProviders = [provider];
+  const inferenceProviders = [provider];
 
-return new Fabric(
-  thinker,
-  planner,
-  planExecutor,
-  aspectRegistry,
-  planValidator,
-  evaluator,
-  3,
-  inferenceProviders,
-  performanceRegistry,
-);
+  return new Fabric(
+    thinker,
+    planner,
+    planExecutor,
+    aspectRegistry,
+    planValidator,
+    evaluator,
+    3,
+    inferenceProviders,
+    performanceRegistry,
+  );
 }
 
 class InvalidDependencyThinker implements Thinker {
@@ -355,6 +364,80 @@ class ReplanningThinker implements Thinker {
 }
 
 describe('Fabric', () => {
+  it('uses performance history when adaptive scheduling is enabled', async () => {
+    const aspectRegistry = new AspectRegistry();
+    aspectRegistry.register(extractRequirements);
+
+    const provider = new FakeInferenceProvider();
+
+    const nodeRegistry = new NodeRegistry();
+
+    nodeRegistry.register(
+      new LocalNode(
+        'local-test',
+        [
+          {
+            aspect: 'extract_requirements',
+            quality: 0.85,
+            contextWindow: 8192,
+            latencyMs: 100,
+            local: true,
+          },
+        ],
+        provider,
+      ),
+    );
+
+    const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new AdaptivePolicy(),
+      performanceRegistry,
+    );
+
+    const planner = new Planner(nodeRegistry, selector);
+
+    const executor = new Executor(
+      nodeRegistry,
+      selector,
+      undefined,
+      performanceRegistry,
+    );
+
+    const planExecutor = new PlanExecutor(executor);
+
+    const thinker = new FakeThinker();
+    const planValidator = new PlanValidator();
+    const evaluator = new BasicEvaluator();
+    const inferenceProviders = [provider];
+
+    const fabric = new Fabric(
+      thinker,
+      planner,
+      planExecutor,
+      aspectRegistry,
+      planValidator,
+      evaluator,
+      3,
+      inferenceProviders,
+      performanceRegistry,
+    );
+
+    const result = await fabric.run({
+      description: 'Analyze a mechanical design and identify its requirements.',
+    });
+
+    expect(result).toContain('extract_requirements');
+
+    const profile = performanceRegistry.profile(
+      'local-test',
+      'extract_requirements',
+    );
+
+    expect(profile.executions).toBe(1);
+    expect(profile.successRate).toBe(1);
+  });
+
   it('closes configured providers', async () => {
     const provider = new FakeInferenceProvider();
 

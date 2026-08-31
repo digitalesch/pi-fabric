@@ -154,36 +154,36 @@ describe('PhysicalPlanValidator', () => {
   });
 
   it('rejects a physical plan with a missing dependency', () => {
-  const registry = new NodeRegistry();
+    const registry = new NodeRegistry();
 
-  const node = new RecordingNode('node-1');
-  registry.register(node);
+    const node = new RecordingNode('node-1');
+    registry.register(node);
 
-  const validator = new PhysicalPlanValidator(registry);
+    const validator = new PhysicalPlanValidator(registry);
 
-  const plan: PhysicalPlan = {
-    tasks: [
-      {
-        task: {
-          id: 'task-2',
-          aspect: 'extract_requirements',
-          input: {},
-          context: {
-            facts: {},
-            constraints: [],
-            assumptions: [],
-            references: [],
+    const plan: PhysicalPlan = {
+      tasks: [
+        {
+          task: {
+            id: 'task-2',
+            aspect: 'extract_requirements',
+            input: {},
+            context: {
+              facts: {},
+              constraints: [],
+              assumptions: [],
+              references: [],
+            },
+            outputSchema: {},
+            dependencies: ['task-1'],
           },
-          outputSchema: {},
-          dependencies: ['task-1'],
+          nodeId: 'node-1',
         },
-        nodeId: 'node-1',
-      },
-    ],
-  };
+      ],
+    };
 
-  expect(() => validator.validate(plan)).toThrow(
-    'Physical plan task task-2 depends on missing task: task-1',
-  );
-});
+    expect(() => validator.validate(plan)).toThrow(
+      'Physical plan task task-2 depends on missing task: task-1',
+    );
+  });
 });

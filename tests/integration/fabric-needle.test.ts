@@ -45,9 +45,12 @@ function createTestFabric(): Fabric {
     ),
   );
 
-  const selector = new NodeSelector(new QualityFirstPolicy());
-
   const performanceRegistry = new PerformanceRegistry();
+
+  const selector = new NodeSelector(
+    new QualityFirstPolicy(),
+    performanceRegistry,
+  );
 
   const executor = new Executor(
     nodeRegistry,
@@ -75,7 +78,6 @@ function createTestFabric(): Fabric {
     performanceRegistry,
   );
 }
-
 
 describe('Fabric', () => {
   it('executes an objective through the full orchestration pipeline', async () => {

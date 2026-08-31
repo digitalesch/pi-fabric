@@ -23,10 +23,7 @@ describe('PerformanceRegistry', () => {
       }),
     );
 
-    const profile = registry.profile(
-      'needle-local',
-      'extract_requirements',
-    );
+    const profile = registry.profile('needle-local', 'extract_requirements');
 
     expect(profile.executions).toBe(1);
     expect(profile.successRate).toBe(1);
@@ -43,10 +40,7 @@ describe('PerformanceRegistry', () => {
       }),
     );
 
-    const profile = registry.profile(
-      'needle-local',
-      'extract_requirements',
-    );
+    const profile = registry.profile('needle-local', 'extract_requirements');
 
     expect(profile.executions).toBe(1);
     expect(profile.successRate).toBe(0);
@@ -74,10 +68,7 @@ describe('PerformanceRegistry', () => {
       }),
     );
 
-    const profile = registry.profile(
-      'needle-local',
-      'extract_requirements',
-    );
+    const profile = registry.profile('needle-local', 'extract_requirements');
 
     expect(profile.executions).toBe(3);
     expect(profile.successRate).toBeCloseTo(2 / 3);
@@ -174,10 +165,7 @@ describe('PerformanceRegistry', () => {
       }),
     );
 
-    const profile = registry.profile(
-      'needle-local',
-      'extract_requirements',
-    );
+    const profile = registry.profile('needle-local', 'extract_requirements');
 
     expect(profile).toMatchObject({
       nodeId: 'needle-local',
@@ -195,10 +183,7 @@ describe('PerformanceRegistry', () => {
   it('returns an empty profile for an unknown node', () => {
     const registry = new PerformanceRegistry();
 
-    const profile = registry.profile(
-      'unknown',
-      'extract_requirements',
-    );
+    const profile = registry.profile('unknown', 'extract_requirements');
 
     expect(profile).toEqual({
       nodeId: 'unknown',

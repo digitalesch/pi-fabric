@@ -76,9 +76,12 @@ describe('Needle scheduling integration', () => {
     registry.register(fakeNode);
     registry.register(needleNode);
 
-    const selector = new NodeSelector(new QualityFirstPolicy());
-
     const performanceRegistry = new PerformanceRegistry();
+
+    const selector = new NodeSelector(
+      new QualityFirstPolicy(),
+      performanceRegistry,
+    );
 
     const planner = new Planner(registry, selector);
 

@@ -11,6 +11,7 @@ import { NodeRegistry } from '../../src/runtime/registry.js';
 import { NodeSelector } from '../../src/runtime/node-selector.js';
 import { PlanExecutor } from '../../src/runtime/plan-executor.js';
 import { QualityFirstPolicy } from '../../src/runtime/policies/quality-first.js';
+import { PerformanceRegistry } from '../../src/runtime/performance-registry.js';
 
 const capability = (aspect: string, quality = 1): Capability => ({
   aspect,
@@ -60,7 +61,12 @@ const createRegistry = (nodes: DeterministicNode[]): NodeRegistry => {
 
 const createExecutor = (nodes: DeterministicNode[]) => {
   const registry = createRegistry(nodes);
-  const selector = new NodeSelector(new QualityFirstPolicy());
+  const performanceRegistry = new PerformanceRegistry();
+
+  const selector = new NodeSelector(
+    new QualityFirstPolicy(),
+    performanceRegistry,
+  );
 
   return {
     registry,
